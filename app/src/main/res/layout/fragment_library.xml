@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F8F9FA"
+    android:paddingHorizontal="20dp"> <RelativeLayout
+    android:id="@+id/rlHeaderLibrary"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="42dp"> <com.google.android.material.card.MaterialCardView
+    android:id="@+id/cardLibrarySearchBarWrapper"
+    android:layout_width="match_parent"
+    android:layout_height="48dp"
+    android:layout_toStartOf="@+id/cardLibraryAvatarWrapper"
+    android:layout_marginEnd="14dp"
+    android:layout_centerVertical="true"
+    app:cardCornerRadius="24dp"
+    app:cardElevation="0dp"
+    app:strokeWidth="0dp"
+    app:cardBackgroundColor="#EFEFEF">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="16dp">
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@android:drawable/ic_search_category_default"
+            app:tint="#616161"/>
+
+        <EditText
+            android:id="@+id/edtLibrarySearch"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginStart="12dp"
+            android:background="@null"
+            android:hint="Tìm kiếm trong thư viện của bạn"
+            android:inputType="text"
+            android:textSize="15sp"
+            android:textColor="#212121"
+            android:textColorHint="#757575"
+            android:importantForAutofill="no"/>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardLibraryAvatarWrapper"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        app:cardCornerRadius="22dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="0dp"
+        app:cardBackgroundColor="#4D62FF">
+
+        <TextView
+            android:id="@+id/txtLibraryAvatarLetter"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="N"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"/>
+    </com.google.android.material.card.MaterialCardView>
+</RelativeLayout>
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="16dp"> <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvLibraryDecks"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingBottom="88dp"
+        android:clipToPadding="false"/>
+
+        <ProgressBar
+            android:id="@+id/progressLibraryLoading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:visibility="gone"/>
+
+        <TextView
+            android:id="@+id/txtLibraryEmpty"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="Thư viện chưa có bộ học phần nào!"
+            android:textColor="#757575"
+            android:textSize="15sp"
+            android:visibility="gone"/>
+    </RelativeLayout>
+
+</LinearLayout>

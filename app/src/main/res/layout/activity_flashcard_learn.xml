@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:background="#F8F9FA">
+
+    <LinearLayout
+        android:id="@+id/llStudyWorkspace"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:visibility="visible">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:paddingHorizontal="16dp">
+            <ImageButton
+                android:id="@+id/btnLearnClose"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_centerVertical="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                app:tint="#212121"/>
+            <TextView
+                android:id="@+id/txtLearnIndicator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:text="1 / --"
+                android:textSize="18sp"
+                android:textStyle="bold"/>
+            <ImageButton
+                android:id="@+id/btnLearnSettings"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_preferences"
+                app:tint="#212121"/>
+        </RelativeLayout>
+
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/progressLearnHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            app:trackColor="#E0E0E0"
+            app:indicatorColor="#4D62FF"/>
+
+        <RelativeLayout
+            android:id="@+id/rlCountBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:paddingHorizontal="24dp">
+            <TextView
+                android:id="@+id/txtCountNotLearned"
+                android:layout_width="54dp"
+                android:layout_height="32dp"
+                android:background="@android:drawable/editbox_dropdown_light_frame"
+                android:backgroundTint="#FFF0E6"
+                android:gravity="center"
+                android:text="0"
+                android:textColor="#E65100"
+                android:textStyle="bold"/>
+            <TextView
+                android:id="@+id/txtCountLearned"
+                android:layout_width="54dp"
+                android:layout_height="32dp"
+                android:layout_alignParentEnd="true"
+                android:background="@android:drawable/editbox_dropdown_light_frame"
+                android:backgroundTint="#E6F7ED"
+                android:gravity="center"
+                android:text="0"
+                android:textColor="#1B5E20"
+                android:textStyle="bold"/>
+        </RelativeLayout>
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_margin="24dp">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardSwipeContainer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="3dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="#E0E0E0">
+                <TextView
+                    android:id="@+id/txtLearnCardContent"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:gravity="center"
+                    android:padding="24dp"
+                    android:text="..."
+                    android:textColor="#212121"
+                    android:textSize="26sp"
+                    android:textStyle="bold"/>
+            </com.google.android.material.card.MaterialCardView>
+        </FrameLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/rlResultScreen"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp"
+        android:background="#FFFFFF"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tuyệt vời! 🎉"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:textColor="#4D62FF"/>
+
+        <TextView
+            android:id="@+id/txtResultSummary"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Bạn đã hoàn thành lượt học này"
+            android:textSize="16sp"
+            android:textColor="#757575"
+            android:gravity="center"/>
+
+        <Button
+            android:id="@+id/btnContinueRemaining"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:layout_marginTop="40dp"
+            android:text="Tiếp tục học thẻ chưa thuộc"
+            android:backgroundTint="#4D62FF"
+            android:textAllCaps="false"
+            android:textStyle="bold"
+            app:cornerRadius="12dp"/>
+
+        <Button
+            android:id="@+id/btnBackToLibrary"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:layout_marginTop="12dp"
+            android:text="Quay về thư viện"
+            android:backgroundTint="#F4F5F9"
+            android:textColor="#212121"
+            android:textAllCaps="false"
+            app:cornerRadius="12dp"/>
+    </LinearLayout>
+</RelativeLayout>
