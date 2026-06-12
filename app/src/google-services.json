@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "846504189626",
+    "project_id": "flashcard-quizlet",
+    "storage_bucket": "flashcard-quizlet.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:846504189626:android:d45fd62eba14fad1fa2c83",
+        "android_client_info": {
+          "package_name": "com.example.flashcardapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjm4njHLcslnd12N2aZQmeVIWhrt1d4WY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

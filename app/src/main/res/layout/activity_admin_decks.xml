@@ -5,24 +5,40 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#F4F6FA">
+    android:background="#F8F9FA"
+    android:fitsSystemWindows="true"> <RelativeLayout
+    android:layout_width="match_parent"
+    android:layout_height="56dp"
+    android:background="#FFFFFF"
+    android:elevation="2dp"
+    android:paddingHorizontal="16dp">
 
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/toolbarAdminDecks"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="#FFFFFF"
-        app:title="Thư viện hệ thống"
-        app:titleTextColor="#1A237E"
-        app:navigationIcon="@drawable/ic_back_arrow"
-        app:elevation="2dp"/>
+    <ImageButton
+        android:id="@+id/btnBackToMainAdmin"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_centerVertical="true"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@android:drawable/ic_menu_revert"
+        app:tint="#212121"
+        android:contentDescription="Back" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:text="Thư viện hệ thống"
+        android:textColor="#212121"
+        android:textSize="18sp"
+        android:textStyle="bold"/>
+</RelativeLayout>
 
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvAdminDecksList"
+        android:id="@+id/rvAdminGlobalDecksList"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="16dp"
         android:clipToPadding="false"
-        android:scrollbars="vertical"/>
+        android:paddingTop="8dp"
+        android:paddingBottom="24dp"/>
 
 </LinearLayout>

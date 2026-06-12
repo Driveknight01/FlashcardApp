@@ -8,8 +8,12 @@ import android.view.View;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import com.example.flashcardapp.databinding.ActivityFlashcardLearnBinding;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -17,9 +21,11 @@ public class FlashcardLearnActivity extends AppCompatActivity {
 
     private ActivityFlashcardLearnBinding binding;
     private FirebaseFirestore mFirestore;
-    private String currentDeckId;
+    private FirebaseAuth mAuth;
 
-    // originalCards: Giữ mảng gốc nạp từ Firebase để cuối hiệp ghi đè lưu tổng lực
+    private String baseDeckId;
+    private String targetDocumentId;
+
     private final List<Map<String, Object>> originalCards = new ArrayList<>();
     private final List<Map<String, Object>> studyQueue = new ArrayList<>();
     private final List<Map<String, Object>> nonBelongedCardsToday = new ArrayList<>();
@@ -33,6 +39,15 @@ public class FlashcardLearnActivity extends AppCompatActivity {
     private float dX, initialX;
     private final float SWIPE_THRESHOLD = 350f;
 
+    private boolean isSessionCounted = false;
+
+    // Quản lý các bộ lắng nghe Realtime tránh rò rỉ bộ nhớ
+    private ListenerRegistration personalDeckRealtimeListener;
+    private ListenerRegistration adminDeckRealtimeListener;
+
+    // 🌟 CỜ CHẶN LOOP VÔ HẠN: Khóa không cho trình nghe Realtime tự reset hàng đợi khi User đang vuốt thẻ
+    private boolean isUserSwiping = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -40,81 +55,202 @@ public class FlashcardLearnActivity extends AppCompatActivity {
         setContentView(binding.getRoot());
 
         mFirestore = FirebaseFirestore.getInstance();
-        currentDeckId = getIntent().getStringExtra("DECK_ID");
+        mAuth = FirebaseAuth.getInstance();
 
-        binding.btnLearnSettings.setVisibility(View.GONE); // Ẩn hoàn toàn nút cài đặt rườm rà
+        String rawDeckId = getIntent().getStringExtra("DECK_ID");
+        baseDeckId = rawDeckId;
+
+        // 🌟 GIẢI PHÁP LÀM SẠCH ID CHÍ MẠNG: Nếu trang chủ truyền sang ID đã bọc sẵn UID (Ví dụ: UID_baseId), tiến hành bóc tách lấy ID gốc Admin
+        if (rawDeckId != null && mAuth.getCurrentUser() != null) {
+            String currentUid = mAuth.getCurrentUser().getUid();
+            if (rawDeckId.startsWith(currentUid + "_")) {
+                baseDeckId = rawDeckId.replace(currentUid + "_", "");
+            }
+        }
+
+        targetDocumentId = baseDeckId;
+
+        binding.btnLearnSettings.setVisibility(View.GONE);
         binding.btnLearnClose.setOnClickListener(v -> finish());
         binding.btnBackToLibrary.setOnClickListener(v -> finish());
 
         setupCardGestures();
 
-        if (currentDeckId != null) {
-            loadFirebaseData(currentDeckId);
+        if (baseDeckId != null && mAuth.getCurrentUser() != null) {
+            String currentUid = mAuth.getCurrentUser().getUid();
+            String localizedPersonalId = currentUid + "_" + baseDeckId;
+
+            checkAndLoadDataFlow(localizedPersonalId);
         }
     }
 
-    // 🚀 LUỒNG TỰ ĐỘNG NHẬN DIỆN VÀ XOAY TRỤC DATA THÔNG MINH
-    private void loadFirebaseData(String deckId) {
+    private void checkAndLoadDataFlow(String localizedId) {
         long currentTime = System.currentTimeMillis();
 
-        // Bước 1: Thử tìm kiếm bộ thẻ trong kho Cá nhân trước
-        mFirestore.collection("personal_decks").document(deckId).get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (binding == null) return;
+        // 🌟 REALTIME TOÀN DIỆN PHÍA USER: Theo dõi liên tục bảng cá nhân, gộp dữ liệu tức thì
+        personalDeckRealtimeListener = mFirestore.collection("personal_decks").document(localizedId)
+                .addSnapshotListener((personalDoc, error) -> {
+                    if (error != null || binding == null) return;
 
-                    if (documentSnapshot.exists()) {
-                        // NẾU TÌM THẤY TRONG KHO CÁ NHÂN -> Tiến hành học luôn trên bản tiến trình cá nhân
-                        processCardsData(documentSnapshot.get("cards"), currentTime, "personal_decks");
+                    if (personalDoc != null && personalDoc.exists()) {
+                        targetDocumentId = localizedId;
+                        increaseStudyCountInFirebase(localizedId);
+
+                        // CHỈ cho phép gộp cập nhật nạp giao diện nếu người dùng KHÔNG trong tiến trình vuốt thẻ
+                        if (!isUserSwiping) {
+                            processCardsData(personalDoc.get("cards"), currentTime);
+                            startAdminRealtimeListening(personalDoc, currentTime);
+                        }
                     } else {
-                        // NẾU KHÔNG THẤY -> Kích hoạt cơ chế tự động nhân bản bộ thẻ hệ thống của Admin
-                        loadAdminGlobalDataFallback(deckId, currentTime);
+                        // Nếu chưa từng có dữ liệu tiến trình, thực hiện nạp từ bài gốc hệ thống
+                        mFirestore.collection("personal_decks").document(baseDeckId).get()
+                                .addOnSuccessListener(originPersonalDoc -> {
+                                    if (binding == null) return;
+                                    if (originPersonalDoc.exists()) {
+                                        targetDocumentId = baseDeckId;
+                                        increaseStudyCountInFirebase(baseDeckId);
+                                        processCardsData(originPersonalDoc.get("cards"), currentTime);
+                                    } else {
+                                        loadAdminGlobalDataFallback(currentTime, localizedId);
+                                    }
+                                })
+                                .addOnFailureListener(e -> loadAdminGlobalDataFallback(currentTime, localizedId));
                     }
-                })
-                .addOnFailureListener(e -> loadAdminGlobalDataFallback(deckId, currentTime));
+                });
     }
 
-    // 🌟 THUẬT TOÁN NHÂN BẢN (CLONE FLOW): Sao chép bài Admin về kho cá nhân để kích hoạt Spaced Repetition và mục Tiếp tục học
-    private void loadAdminGlobalDataFallback(String deckId, long currentTime) {
-        mFirestore.collection("global_decks").document(deckId).get()
+    // 🌟 THUẬT TOÁN REALTIME CHÉO TỪ ADMIN: Phát hiện sửa nghĩa, ép hạ cấp về trạng thái chưa thuộc
+    private void startAdminRealtimeListening(DocumentSnapshot userDoc, long currentTime) {
+        if (adminDeckRealtimeListener != null) return;
+
+        adminDeckRealtimeListener = mFirestore.collection("global_decks").document(baseDeckId)
+                .addSnapshotListener((adminSnapshot, error) -> {
+                    if (error != null || binding == null || adminSnapshot == null || !adminSnapshot.exists()) return;
+
+                    List<Map<String, Object>> adminCards = (List<Map<String, Object>>) adminSnapshot.get("cards");
+                    if (adminCards == null) return;
+
+                    List<Map<String, Object>> currentUserCards = new ArrayList<>(originalCards);
+
+                    Map<String, Map<String, Object>> userProgressMap = new HashMap<>();
+                    for (Map<String, Object> uCard : currentUserCards) {
+                        if (uCard.get("term") != null) {
+                            String term = String.valueOf(uCard.get("term")).trim().toLowerCase();
+                            userProgressMap.put(term, uCard);
+                        }
+                    }
+
+                    List<Map<String, Object>> syncedCardsList = new ArrayList<>();
+                    final boolean[] hasAnyDefinitionChanged = {false};
+
+                    for (Map<String, Object> aCard : adminCards) {
+                        Map<String, Object> newCard = new HashMap<>(aCard);
+                        String adminTerm = String.valueOf(aCard.get("term")).trim().toLowerCase();
+                        String adminDef = String.valueOf(aCard.get("definition")).trim();
+
+                        if (userProgressMap.containsKey(adminTerm)) {
+                            Map<String, Object> oldCard = userProgressMap.get(adminTerm);
+                            String oldDef = String.valueOf(oldCard.get("definition")).trim();
+
+                            // ⚡ LOGIC ĐỐI CHIẾU NGHĨA SỬA ĐỔI
+                            if (!adminDef.equals(oldDef)) {
+                                // Admin sửa nội dung nghĩa sai -> Hạ cấp về học lại từ đầu để cập nhật kiến thức đúng
+                                newCard.put("isLearned", false);
+                                newCard.put("learned", false);
+                                newCard.put("status", "learning");
+                                newCard.put("nextReviewTime", 0L);
+                                hasAnyDefinitionChanged[0] = true;
+                            } else {
+                                // Nội dung chuẩn khớp -> Giữ nguyên tiến độ cũ của User
+                                newCard.put("isLearned", oldCard.get("isLearned"));
+                                if (oldCard.containsKey("learned")) newCard.put("learned", oldCard.get("learned"));
+                                newCard.put("status", oldCard.get("status"));
+                                newCard.put("nextReviewTime", oldCard.get("nextReviewTime"));
+                            }
+                        } else {
+                            // Thẻ hoàn toàn mới tinh do Admin vừa chèn thêm vào hệ thống
+                            newCard.put("isLearned", false);
+                            newCard.put("learned", false);
+                            newCard.put("status", "learning");
+                            newCard.put("nextReviewTime", 0L);
+                            hasAnyDefinitionChanged[0] = true;
+                        }
+                        syncedCardsList.add(newCard);
+                    }
+
+                    // Đẩy dữ liệu đồng bộ đè lên Firestore cá nhân (Lệnh này sẽ tự động kích hoạt Listener ở hàm checkAndLoad làm mới UI)
+                    if (currentUserCards.size() != syncedCardsList.size() || hasAnyDefinitionChanged[0]) {
+                        mFirestore.collection("personal_decks").document(userDoc.getId())
+                                .update("cards", syncedCardsList)
+                                .addOnSuccessListener(aVoid -> {
+                                    if (hasAnyDefinitionChanged[0]) {
+                                        Toast.makeText(FlashcardLearnActivity.this, "♻️ Admin vừa sửa định nghĩa sai, các thẻ liên quan đã được đưa về luồng học lại!", Toast.LENGTH_LONG).show();
+                                    }
+                                });
+                    }
+                });
+    }
+
+    private void loadAdminGlobalDataFallback(long currentTime, String localizedId) {
+        mFirestore.collection("global_decks").document(baseDeckId).get()
                 .addOnSuccessListener(adminSnapshot -> {
                     if (binding == null) return;
 
                     if (adminSnapshot.exists()) {
-                        String currentUid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid();
+                        String currentUid = mAuth.getCurrentUser().getUid();
                         Map<String, Object> personalCopy = adminSnapshot.getData();
 
                         if (personalCopy != null) {
-                            // Bổ sung các nhãn cá nhân hóa để hợp thức hóa thuộc về học viên này
+                            personalCopy.put("id", localizedId);
                             personalCopy.put("userId", currentUid);
-                            personalCopy.put("creatorId", currentUid);
-                            personalCopy.put("lastModified", System.currentTimeMillis()); // Đánh dấu mốc thời gian thực hiện học
+                            personalCopy.put("creatorId", adminSnapshot.getString("creatorId") != null ? adminSnapshot.getString("creatorId") : adminSnapshot.getString("userId"));
+                            personalCopy.put("lastModified", System.currentTimeMillis());
+                            personalCopy.put("author", "Hệ thống");
 
-                            // Tiến hành lưu bản sao này vào collection cá nhân
-                            mFirestore.collection("personal_decks").document(deckId).set(personalCopy)
-                                    .addOnSuccessListener(aVoid -> {
-                                        Log.d("FirebaseClone", "Đã nhân bản học phần hệ thống về kho cá nhân thành công!");
-                                        // Chuyển hướng sang nạp dữ liệu từ bản sao cá nhân để áp dụng thuật toán đóng băng ngắt quãng
-                                        processCardsData(personalCopy.get("cards"), currentTime, "personal_decks");
-                                    });
+                            targetDocumentId = localizedId;
+                            mFirestore.collection("personal_decks").document(localizedId).set(personalCopy)
+                                    .addOnSuccessListener(aVoid -> Log.d("FirebaseClone", "Khởi tạo tiến trình độc lập lần đầu thành công!"))
+                                    .addOnFailureListener(e -> Log.e("FirebaseClone", "Lỗi nhân bản: " + e.getMessage()));
                         }
                     } else {
-                        Toast.makeText(FlashcardLearnActivity.this, "Không tìm thấy dữ liệu học phần này!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(FlashcardLearnActivity.this, "Không tìm thấy dữ liệu học phần hệ thống gốc!", Toast.LENGTH_SHORT).show();
                         finish();
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(FlashcardLearnActivity.this, "Lỗi tải dữ liệu: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(FlashcardLearnActivity.this, "Lỗi kết nối: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     finish();
                 });
     }
 
-    // Hàm bóc tách xử lý logic nạp thẻ và lọc thuật toán Spaced Repetition hồi chiêu
-    private void processCardsData(Object cardsObject, long currentTime, String currentDeckType) {
+    private void increaseStudyCountInFirebase(String docId) {
+        if (isSessionCounted || docId == null) return;
+        isSessionCounted = true;
+
+        mFirestore.collection("personal_decks").document(docId).get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    int currentCount = 0;
+                    if (documentSnapshot.exists()) {
+                        if (documentSnapshot.contains("studyCount") && documentSnapshot.get("studyCount") != null) {
+                            currentCount = documentSnapshot.getLong("studyCount").intValue();
+                        }
+                    }
+                    int newCount = currentCount + 1;
+
+                    Map<String, Object> updateMap = new HashMap<>();
+                    updateMap.put("studyCount", newCount);
+
+                    mFirestore.collection("personal_decks").document(docId)
+                            .set(updateMap, com.google.firebase.firestore.SetOptions.merge());
+                });
+    }
+
+    private void processCardsData(Object cardsObject, long currentTime) {
         if (cardsObject instanceof List) {
             List<Map<String, Object>> cards = (List<Map<String, Object>>) cardsObject;
 
             originalCards.clear();
-            originalCards.addAll(cards); // Bảo lưu mảng gốc phục vụ cập nhật Firebase
+            originalCards.addAll(cards);
 
             List<Map<String, Object>> validCardsForToday = new ArrayList<>();
             for (Map<String, Object> c : cards) {
@@ -123,14 +259,13 @@ public class FlashcardLearnActivity extends AppCompatActivity {
                     nextReviewTime = ((Number) c.get("nextReviewTime")).longValue();
                 }
 
-                // Thuật toán ngắt quãng thời gian thực (Lúc này đã chạy độc lập trên bản sao personal_decks nên hoạt động hoàn mỹ)
                 if (nextReviewTime <= currentTime) {
                     validCardsForToday.add(c);
                 }
             }
 
             if (validCardsForToday.isEmpty()) {
-                Toast.makeText(FlashcardLearnActivity.this, "Tất cả các thẻ đã thuộc đang được đóng băng (chờ hồi chiêu 3 phút)!", Toast.LENGTH_LONG).show();
+                Toast.makeText(FlashcardLearnActivity.this, "Tất cả các thẻ đã thuộc đang được đóng băng chờ hồi chiêu!", Toast.LENGTH_LONG).show();
                 finish();
                 return;
             }
@@ -149,7 +284,7 @@ public class FlashcardLearnActivity extends AppCompatActivity {
         nonBelongedCardsToday.clear();
         countLearned = 0;
         countNotLearned = 0;
-        currentIndexPosition = 1; // Reset chỉ số tiến trình về 1 tuyệt đối cho hiệp mới
+        currentIndexPosition = 1;
 
         totalRoundSize = studyQueue.size();
         binding.txtCountLearned.setText("0");
@@ -163,7 +298,6 @@ public class FlashcardLearnActivity extends AppCompatActivity {
     }
 
     private void updateCardUI() {
-        // FIXED: Khi tiến trình vượt quá tổng số thẻ của hiệp -> Kết thúc luôn, không cho chạy cố
         if (currentIndexPosition > totalRoundSize || studyQueue.isEmpty()) {
             displayResultScreen();
             return;
@@ -182,14 +316,15 @@ public class FlashcardLearnActivity extends AppCompatActivity {
     private void executeSwipeDecision(boolean isSwipedRight) {
         if (studyQueue.isEmpty()) return;
 
-        // Bốc thẻ đầu hàng đợi ra để xử lý phân loại
+        // BẬT CỜ TƯƠNG TÁC: Khóa không cho SnapshotListener nạp lại mảng thẻ lúc đang vuốt dở hiệp học
+        isUserSwiping = true;
+
         Map<String, Object> currentCard = studyQueue.remove(0);
 
         if (isSwipedRight) {
             countLearned++;
             binding.txtCountLearned.setText(String.valueOf(countLearned));
 
-            // ĐÃ THUỘC: Đóng băng ngắt quãng đúng 3 phút để phục vụ bạn test nhanh
             long threeMinutesMillis = 3L * 60 * 1000;
             currentCard.put("nextReviewTime", System.currentTimeMillis() + threeMinutesMillis);
             currentCard.put("status", "mastered");
@@ -199,29 +334,24 @@ public class FlashcardLearnActivity extends AppCompatActivity {
             countNotLearned++;
             binding.txtCountNotLearned.setText(String.valueOf(countNotLearned));
 
-            // CHƯA THUỘC: Đặt hạn bằng 0
             currentCard.put("nextReviewTime", 0);
             currentCard.put("status", "learning");
 
             updateCardInLocalList(currentCard);
-
-            // FIX TRIỆT ĐỂ: KHÔNG add ngược lại vào studyQueue nữa để tránh lỗi phình mảng vuốt nhiều lần (11/7).
-            // Thẻ lỗi này sẽ được gom vào mảng nonBelongedCardsToday và đợi đến hiệp sau mới lôi ra học lại.
             nonBelongedCardsToday.add(currentCard);
         }
 
-        currentIndexPosition++; // Tăng chỉ số tiến trình sau khi hoàn thành 1 cái vuốt hợp lệ
+        currentIndexPosition++;
 
         binding.cardSwipeContainer.animate().translationX(isSwipedRight ? 1000f : -1000f).alpha(0f).setDuration(200)
                 .withEndAction(() -> {
                     binding.cardSwipeContainer.setX(0f);
                     binding.cardSwipeContainer.setRotation(0f);
                     binding.cardSwipeContainer.setAlpha(1f);
-                    updateCardUI(); // Cập nhật và kiểm tra chuyển màn kết quả nếu hết từ
+                    updateCardUI();
                 }).start();
     }
 
-    // Ghi đè trạng thái thẻ mới vào mảng nhớ cục bộ (Local Memory)
     private void updateCardInLocalList(Map<String, Object> updatedCard) {
         for (int i = 0; i < originalCards.size(); i++) {
             if (String.valueOf(originalCards.get(i).get("term")).equals(updatedCard.get("term"))) {
@@ -231,20 +361,23 @@ public class FlashcardLearnActivity extends AppCompatActivity {
         }
     }
 
-    // 🔥 ĐỒNG BỘ KHÔI PHỤC CHUẨN: Đẩy thẳng mốc lưu ngắt quãng ngập tràn lên đám mây personal_decks
     private void saveAllProgressToFirebase() {
-        if (currentDeckId == null || originalCards.isEmpty()) return;
+        if (targetDocumentId == null || originalCards.isEmpty()) return;
 
-        mFirestore.collection("personal_decks").document(currentDeckId)
+        mFirestore.collection("personal_decks").document(targetDocumentId)
                 .update(
                         "cards", originalCards,
-                        "lastModified", System.currentTimeMillis() // Kích hoạt ghi vết thời gian để lọt vào mục Tiếp tục học thời gian thực
+                        "lastModified", System.currentTimeMillis()
                 )
-                .addOnSuccessListener(aVoid -> Log.d("FirebaseSave", "Đã lưu tiến trình ngắt quãng tổng lực!"));
+                .addOnSuccessListener(aVoid -> {
+                    Log.d("FirebaseSave", "Đã lưu tiến trình học tập.");
+                    // Đã lưu ghi đè thành công lên DB -> Hạ cờ tương tác để mở khóa luồng hứng Realtime
+                    isUserSwiping = false;
+                })
+                .addOnFailureListener(e -> isUserSwiping = false);
     }
 
     private void displayResultScreen() {
-        // Đồng bộ toàn bộ dữ liệu ngắt quãng lên Firebase
         saveAllProgressToFirebase();
 
         binding.llStudyWorkspace.setVisibility(View.GONE);
@@ -258,7 +391,6 @@ public class FlashcardLearnActivity extends AppCompatActivity {
             binding.btnContinueRemaining.setVisibility(View.VISIBLE);
             binding.btnContinueRemaining.setText("Tiếp tục ôn " + nonBelongedCardsToday.size() + " thẻ chưa thuộc");
             binding.btnContinueRemaining.setOnClickListener(v -> {
-                // Nạp hiệp mới chứa ĐÚNG số từ chưa thuộc, thanh chỉ số trả về 1/X chuẩn chỉ
                 List<Map<String, Object>> failedCopy = new ArrayList<>(nonBelongedCardsToday);
                 resetLearningSession(failedCopy);
             });
@@ -303,5 +435,17 @@ public class FlashcardLearnActivity extends AppCompatActivity {
             }
             return true;
         });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Gỡ bỏ toàn bộ các trình lắng nghe Realtime khi thoát màn hình để triệt tiêu lỗi rò rỉ RAM bộ nhớ
+        if (personalDeckRealtimeListener != null) {
+            personalDeckRealtimeListener.remove();
+        }
+        if (adminDeckRealtimeListener != null) {
+            adminDeckRealtimeListener.remove();
+        }
     }
 }

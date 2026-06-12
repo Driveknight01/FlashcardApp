@@ -13,7 +13,7 @@
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         android:background="#FFFFFF"
-        app:title="Vuốt để chọn từ"
+        app:title="Vuốt để chọn"
         app:titleTextColor="#212121"
         app:navigationIcon="@android:drawable/ic_menu_close_clear_cancel"
         app:elevation="4dp"/>
@@ -36,7 +36,7 @@
                 android:id="@+id/edtOcrTargetTerm"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="THUẬT NGỮ (Đang chọn)"
+                android:hint="THUẬT NGỮ"
                 android:textColor="#212121"/>
         </com.google.android.material.textfield.TextInputLayout>
 

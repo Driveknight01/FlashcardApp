@@ -1,164 +1,200 @@
 package com.example.flashcardapp.views;
 
+import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.example.flashcardapp.R;
-import com.example.flashcardapp.databinding.ActivityAdminUsersBinding;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
 
 public class AdminUsersActivity extends AppCompatActivity {
 
-    private ActivityAdminUsersBinding binding;
     private FirebaseFirestore mFirestore;
-    private final List<Map<String, Object>> userList = new ArrayList<>();
-    private UserAdapter userAdapter;
+    private final List<DocumentSnapshot> originalUsersList = new ArrayList<>();
+    private final List<DocumentSnapshot> filteredUsersList = new ArrayList<>();
+    private UsersManagementAdapter adapter;
+    private EditText edtSearchUser;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        binding = ActivityAdminUsersBinding.inflate(getLayoutInflater());
-        setContentView(binding.getRoot());
+        setContentView(R.layout.activity_admin_users);
 
         mFirestore = FirebaseFirestore.getInstance();
+        edtSearchUser = findViewById(R.id.edtSearchUser);
 
-        // Cấu hình Toolbar có nút Back quay lại trang chủ Admin
-        binding.toolbarAdminUsers.setNavigationOnClickListener(v -> finish());
+        findViewById(R.id.btnBackFromUsers).setOnClickListener(v -> finish());
 
-        // Cấu hình RecyclerView danh sách dọc quản lý tài khoản người dùng
-        binding.rvAdminUsersList.setLayoutManager(new LinearLayoutManager(this));
-        userAdapter = new UserAdapter(userList);
-        binding.rvAdminUsersList.setAdapter(userAdapter);
+        RecyclerView rv = findViewById(R.id.rvAdminUsersList);
+        rv.setLayoutManager(new LinearLayoutManager(this));
+        adapter = new UsersManagementAdapter(filteredUsersList);
+        rv.setAdapter(adapter);
 
-        loadUserSystemData();
+        loadAllUsersRealtime();
+        setupSearchLogic();
     }
 
-    // 🚀 THUẬT TOÁN ĐẾM LUỒNG KÉP CHUẨN XÁC: Đồng bộ số lượng học phần dựa theo ID người dùng
-    private void loadUserSystemData() {
-        mFirestore.collection("users").get().addOnSuccessListener(queryDocumentSnapshots -> {
-            userList.clear();
-            for (QueryDocumentSnapshot userDoc : queryDocumentSnapshots) {
-                Map<String, Object> userData = userDoc.getData();
+    private void loadAllUsersRealtime() {
+        mFirestore.collection("users")
+                .addSnapshotListener((snapshots, error) -> {
+                    if (error != null || snapshots == null) return;
 
-                // Loại trừ tài khoản Admin, chỉ hiển thị tài khoản User thông thường
-                if (!"admin".equals(userData.get("role"))) {
-                    String uid = userDoc.getId();
-                    userData.put("uid", uid);
-                    userData.put("deckCount", 0);
-                    userData.put("totalCards", 0);
+                    originalUsersList.clear();
+                    originalUsersList.addAll(snapshots.getDocuments());
 
-                    List<String> titles = new ArrayList<>();
-                    userData.put("deckTitlesList", titles);
-                    userList.add(userData);
+                    // Thực hiện lọc lại danh sách dựa theo chuỗi text hiện tại trong ô tìm kiếm
+                    filterUserList(edtSearchUser.getText().toString());
+                });
+    }
 
-                    // Quét toàn bộ bảng personal_decks để tính toán số liệu bất đồng bộ an toàn
-                    mFirestore.collection("personal_decks").get().addOnSuccessListener(deckSnapshots -> {
-                        int count = 0;
-                        int cardsTotal = 0;
-                        titles.clear();
+    private void setupSearchLogic() {
+        edtSearchUser.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
-                        for (QueryDocumentSnapshot deckDoc : deckSnapshots) {
-                            String cId = deckDoc.getString("creatorId");
-                            String uId = deckDoc.getString("userId");
-
-                            if (uid.equals(cId) || uid.equals(uId)) {
-                                count++;
-                                String title = deckDoc.getString("title");
-                                List<?> cards = (List<?>) deckDoc.get("cards");
-                                int size = (cards != null) ? cards.size() : 0;
-                                cardsTotal += size;
-                                titles.add("• " + title + " (" + size + " thẻ)");
-                            }
-                        }
-
-                        // Khống chế khớp mã định danh UID để cập nhật đúng vị trí sườn màn hình
-                        for (int i = 0; i < userList.size(); i++) {
-                            if (uid.equals(userList.get(i).get("uid"))) {
-                                userList.get(i).put("deckCount", count);
-                                userList.get(i).put("totalCards", cardsTotal);
-                                userAdapter.notifyItemChanged(i);
-                                break;
-                            }
-                        }
-                    });
-                }
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                filterUserList(s.toString());
             }
-            userAdapter.notifyDataSetChanged();
+
+            @Override
+            public void afterTextChanged(Editable s) {}
         });
     }
 
-    // Bung cửa sổ Material Dialog chứa thông tin hồ sơ cụ thể của học viên
-    private void showUserDetailPopup(Map<String, Object> u) {
-        String name = String.valueOf(u.get("name"));
-        String email = String.valueOf(u.get("email"));
-        String uid = String.valueOf(u.get("uid"));
-        int deckCount = (int) u.get("deckCount");
-        int totalCards = (int) u.get("totalCards");
-        List<String> deckTitles = (List<String>) u.get("deckTitlesList");
+    @SuppressLint("NotifyDataSetChanged")
+    private void filterUserList(String text) {
+        String query = text.trim().toLowerCase();
+        filteredUsersList.clear();
 
-        StringBuilder details = new StringBuilder();
-        details.append("📧 Email: ").append(email).append("\n🆔 UID: ").append(uid).append("\n");
-        details.append("📊 Đã tạo: ").append(deckCount).append(" bộ học phần (Tổng ").append(totalCards).append(" thẻ)\n\n📂 DANH SÁCH BỘ THẺ THỰC TẾ:\n");
-
-        if (deckTitles != null && !deckTitles.isEmpty()) {
-            for (String t : deckTitles) details.append(t).append("\n");
+        if (query.isEmpty()) {
+            filteredUsersList.addAll(originalUsersList);
         } else {
-            details.append("(Chưa có học phần cá nhân nào)");
-        }
+            for (DocumentSnapshot doc : originalUsersList) {
+                String name = doc.getString("name");
+                String email = doc.getString("email");
 
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("Chi tiết học viên: " + (name.equals("null") ? "Ẩn danh" : name))
-                .setMessage(details.toString())
-                .setPositiveButton("Đóng lại", null).show();
+                if ((name != null && name.toLowerCase().contains(query)) ||
+                        (email != null && email.toLowerCase().contains(query))) {
+                    filteredUsersList.add(doc);
+                }
+            }
+        }
+        adapter.notifyDataSetChanged();
     }
 
-    // --- ADAPTER DANH SÁCH USER (Dùng chung layout item_admin_user) ---
-    private class UserAdapter extends RecyclerView.Adapter<UserAdapter.ViewHolder> {
-        private final List<Map<String, Object>> list;
-        public UserAdapter(List<Map<String, Object>> list) { this.list = list; }
+    // 🌟 HỘP THOẠI HÀNH ĐỘNG QUẢN TRỊ VIÊN
+    private void showUserActionMenu(DocumentSnapshot userDoc) {
+        String uId = userDoc.getId(); // Lấy chuẩn UID tài khoản (ví dụ: 2w0gW...)
+        String name = userDoc.getString("name") != null ? userDoc.getString("name") : "Học viên ẩn danh";
+
+        // 🌟 VÁ LỖI AN TOÀN: Nếu trường status chưa tồn tại (null), mặc định hiểu là "active"
+        String currentStatus = userDoc.getString("status") != null ? userDoc.getString("status") : "active";
+
+        String statusOption = "active".equals(currentStatus) ? "  Khóa tài khoản này" : "  Mở khóa tài khoản";
+        String[] options = {statusOption, "  Xem kho thẻ người dùng"};
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Người dùng: " + name)
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        // Logic Khóa / Mở khóa
+                        String newStatus = "active".equals(currentStatus) ? "banned" : "active";
+
+                        mFirestore.collection("users").document(uId)
+                                .update("status", newStatus)
+                                .addOnSuccessListener(aVoid -> {
+                                    String msg = "active".equals(newStatus) ? "Đã mở khóa tài khoản!" : "Đã khóa tài khoản thành công!";
+                                    Toast.makeText(AdminUsersActivity.this, msg, Toast.LENGTH_SHORT).show();
+                                })
+                                .addOnFailureListener(e -> Toast.makeText(AdminUsersActivity.this, "Thao tác thất bại: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                    } else {
+                        // 🌟 Logic Xem kho thẻ cá nhân: Truyền UID và Tên sang Activity phụ
+                        Intent intent = new Intent(AdminUsersActivity.this, AdminViewUserDecksActivity.class);
+                        intent.putExtra("TARGET_USER_UID", uId);
+                        intent.putExtra("TARGET_USER_NAME", name);
+                        startActivity(intent);
+                    }
+                }).show();
+    }
+
+    // ================= ADAPTER HIỂN THỊ PHẲNG ĐỒNG BỘ =================
+    private class UsersManagementAdapter extends RecyclerView.Adapter<UsersManagementAdapter.ViewHolder> {
+        private final List<DocumentSnapshot> list;
+
+        public UsersManagementAdapter(List<DocumentSnapshot> list) { this.list = list; }
 
         @NonNull
         @Override
         public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_admin_user, parent, false);
-            return new ViewHolder(view);
+            View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_admin_user, parent, false);
+            return new ViewHolder(v);
         }
 
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-            Map<String, Object> u = list.get(position);
-            String name = String.valueOf(u.get("name"));
+            DocumentSnapshot doc = list.get(position);
+            String name = doc.getString("name");
+            String email = doc.getString("email");
+            String role = doc.getString("role");
+            String status = doc.getString("status");
 
-            holder.txtName.setText(name.equals("null") ? "Học viên ẩn danh" : name);
-            holder.txtEmail.setText(String.valueOf(u.get("email")));
-            holder.txtDeckCount.setText("📚 Số bộ thẻ: " + u.get("deckCount"));
-            holder.txtCardCount.setText("🎴 Số thẻ: " + u.get("totalCards"));
+            holder.txtName.setText(name != null ? name : "Học viên ẩn danh");
+            holder.txtStats.setText(email != null ? email : "Không có thông tin email");
 
-            holder.itemView.setOnClickListener(v -> showUserDetailPopup(u));
+            // Xử lý vẽ ký tự đầu tiên lên ô vuông Avatar phẳng
+            if (name != null && !name.trim().isEmpty()) {
+                holder.txtAvatarLetter.setText(name.substring(0, 1).toUpperCase(Locale.ROOT));
+            } else {
+                holder.txtAvatarLetter.setText("U");
+            }
+
+            // Kiểm tra phân quyền để ẩn/hiện nhãn ADMIN
+            if ("admin".equals(role)) {
+                holder.txtRoleBadge.setVisibility(View.VISIBLE);
+            } else {
+                holder.txtRoleBadge.setVisibility(View.GONE);
+            }
+
+            // Kiểm tra trạng thái khóa tài khoản để bật cảnh báo màu đỏ mép phải
+            if ("banned".equals(status)) {
+                holder.txtStatusAlert.setVisibility(View.VISIBLE);
+            } else {
+                holder.txtStatusAlert.setVisibility(View.GONE);
+            }
+
+            // Bắt sự kiện Tap vào dòng học viên để hiển thị menu tính năng tối cao
+            holder.itemView.setOnClickListener(v -> showUserActionMenu(doc));
         }
 
         @Override
         public int getItemCount() { return list.size(); }
 
         class ViewHolder extends RecyclerView.ViewHolder {
-            TextView txtName, txtEmail, txtDeckCount, txtCardCount;
+            TextView txtAvatarLetter, txtName, txtStats, txtRoleBadge, txtStatusAlert;
             ViewHolder(View iv) {
                 super(iv);
+                txtAvatarLetter = iv.findViewById(R.id.txtUserAvatarLetter);
                 txtName = iv.findViewById(R.id.txtAdminUserName);
-                txtEmail = iv.findViewById(R.id.txtAdminUserEmail);
-                txtDeckCount = iv.findViewById(R.id.txtAdminUserDeckCount);
-                txtCardCount = iv.findViewById(R.id.txtAdminUserCardCount);
+                txtStats = iv.findViewById(R.id.txtAdminUserStats);
+                txtRoleBadge = iv.findViewById(R.id.txtUserRoleBadge);
+                txtStatusAlert = iv.findViewById(R.id.txtUserStatusAlert);
             }
         }
     }

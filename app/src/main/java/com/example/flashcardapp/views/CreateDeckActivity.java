@@ -37,7 +37,7 @@ public class CreateDeckActivity extends AppCompatActivity {
     private FirebaseAuth mAuth;
 
     private String userRole = "user";
-    private boolean isEditMode = false; // Mặc định là chế độ thêm mới tinh
+    private boolean isEditMode = false;
     private String editDeckId = "";
 
     // 📸 BỘ NHẬN DỮ LIỆU OCR CAMERA
@@ -121,7 +121,6 @@ public class CreateDeckActivity extends AppCompatActivity {
                 if ((editTitle == null || cardsJson == null) && !editDeckId.isEmpty()) {
                     fetchTargetDeckDataForEdit(editDeckId);
                 }
-
             }
         }
 
@@ -160,7 +159,6 @@ public class CreateDeckActivity extends AppCompatActivity {
 
     // 🚀 LUỒNG TRUY VẤN DỮ LIỆU ĐỔ NGƯỢC LÊN FORM KHI CHỈ CÓ ID BỘ BÀI
     private void fetchTargetDeckDataForEdit(String deckId) {
-        // Tự động dò tìm trong bảng tương ứng với phân quyền người dùng đang chạy
         String collectionPath = "admin".equals(userRole) ? "global_decks" : "personal_decks";
 
         mFirestore.collection(collectionPath).document(deckId).get()
@@ -179,7 +177,7 @@ public class CreateDeckActivity extends AppCompatActivity {
                                 String definition = map.containsKey("definition") ? String.valueOf(map.get("definition")) : "";
                                 String status = map.containsKey("status") ? String.valueOf(map.get("status")) : "learning";
                                 long nextReviewTime = map.containsKey("nextReviewTime") ? ((Number) map.get("nextReviewTime")).longValue() : 0L;
-                                boolean isLearned = map.containsKey("learned") && (boolean) map.get("learned");
+                                boolean isLearned = (map.containsKey("learned") && (boolean) map.get("learned")) || (map.containsKey("isLearned") && (boolean) map.get("isLearned"));
 
                                 Flashcard card = new Flashcard(term, definition);
                                 card.setStatus(status);
@@ -194,7 +192,7 @@ public class CreateDeckActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> Log.e("FirestoreFetchEdit", "Lỗi nạp bài sửa: " + e.getMessage()));
     }
 
-    // HÀM LƯU TÍCH HỢP ĐA NĂNG
+    // 🌟 HÀM LƯU TỐI ƯU ĐA NĂNG: Tách biệt hoàn toàn luồng Tạo mới và Chỉnh sửa
     private void saveDeckToFirebase() {
         String title = binding.edtDeckTitle.getText().toString().trim();
         FirebaseUser currentUser = mAuth.getCurrentUser();
@@ -205,54 +203,70 @@ public class CreateDeckActivity extends AppCompatActivity {
             return;
         }
 
-        List<Flashcard> validCards = new ArrayList<>();
+        // Chuyển đổi mảng đối tượng Flashcard sang List<Map> thuần dữ liệu để Firestore xử lý đồng bộ mượt mà
+        List<Map<String, Object>> firebaseCardsList = new ArrayList<>();
         for (Flashcard card : cardList) {
             String term = card.getTerm().trim();
             String definition = card.getDefinition().trim();
 
             if (!TextUtils.isEmpty(term) && !TextUtils.isEmpty(definition)) {
-                card.setTerm(term);
-                card.setDefinition(definition);
-
-                if (card.getStatus() == null) {
-                    card.setStatus("learning");
-                    card.setNextReviewTime(0L);
-                    card.setLearned(false);
-                }
-                validCards.add(card);
+                Map<String, Object> cardMap = new HashMap<>();
+                cardMap.put("term", term);
+                cardMap.put("definition", definition);
+                cardMap.put("status", card.getStatus() != null ? card.getStatus() : "learning");
+                cardMap.put("nextReviewTime", card.getNextReviewTime() != 0L ? card.getNextReviewTime() : 0L);
+                cardMap.put("isLearned", card.isLearned());
+                cardMap.put("learned", card.isLearned());
+                firebaseCardsList.add(cardMap);
             }
         }
 
-        if (validCards.size() < 2) {
+        if (firebaseCardsList.size() < 2) {
             Toast.makeText(this, "Mục học phần cần chứa tối thiểu từ 2 thẻ trở lên để tạo!", Toast.LENGTH_SHORT).show();
             return;
         }
 
         String deckId = isEditMode ? editDeckId : UUID.randomUUID().toString();
+        String collectionPath = userRole.equals("admin") ? "global_decks" : "personal_decks";
 
+        // 🌟 CHẾ ĐỘ CHỈNH SỬA (EDIT MODE): Không thay đổi trường lastModified tổng để tránh lệch vị trí trang chủ
+        if (isEditMode) {
+            binding.fabAddCardSlot.setEnabled(false);
+
+            mFirestore.collection(collectionPath).document(deckId)
+                    .update("title", title, "cards", firebaseCardsList)
+                    .addOnSuccessListener(aVoid -> {
+                        Toast.makeText(CreateDeckActivity.this, "Cập nhật học phần thành công!", Toast.LENGTH_SHORT).show();
+                        finish();
+                    })
+                    .addOnFailureListener(e -> {
+                        binding.fabAddCardSlot.setEnabled(true);
+                        Toast.makeText(CreateDeckActivity.this, "Lỗi Firebase: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    });
+            return; // Ngắt luồng xử lý tại đây
+        }
+
+        // 🌟 CHẾ ĐỘ TẠO MỚI TINH: Khởi tạo dữ liệu và cấp nhãn thời gian lastModified ban đầu
         Map<String, Object> deckMap = new HashMap<>();
         deckMap.put("id", deckId);
         deckMap.put("title", title);
         deckMap.put("creatorId", currentUserId);
         deckMap.put("userId", currentUserId);
-        deckMap.put("cards", validCards);
+        deckMap.put("cards", firebaseCardsList);
         deckMap.put("lastModified", System.currentTimeMillis());
 
-        // Đảm bảo bài sửa của ai thì giữ nguyên nhãn author cũ, tránh làm mất chữ "Hệ thống"
         if (userRole.equals("admin")) {
             deckMap.put("author", "Hệ thống");
         } else {
             deckMap.put("author", "bạn");
         }
 
-        String collectionPath = userRole.equals("admin") ? "global_decks" : "personal_decks";
         binding.fabAddCardSlot.setEnabled(false);
 
         mFirestore.collection(collectionPath).document(deckId)
                 .set(deckMap)
                 .addOnSuccessListener(aVoid -> {
-                    String msg = isEditMode ? "Cập nhật học phần thành công!" : "Lưu bộ thẻ thành công!";
-                    Toast.makeText(CreateDeckActivity.this, msg, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(CreateDeckActivity.this, "Lưu bộ thẻ thành công!", Toast.LENGTH_SHORT).show();
                     finish();
                 })
                 .addOnFailureListener(e -> {

@@ -61,4 +61,8 @@ dependencies {
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.ext.junit)
     implementation("com.google.code.gson:gson:2.10.1")
+    // Thư viện Authentication của Firebase
+    implementation ("com.google.firebase:firebase-auth")
+    // Thư viện Google Sign-In chính chủ từ Google Services
+    implementation ("com.google.android.gms:play-services-auth:21.2.0")
 }

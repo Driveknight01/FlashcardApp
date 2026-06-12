@@ -34,7 +34,7 @@
                 android:id="@+id/edtDeckTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Chủ đề, chương, đơn vị (Tiêu đề)"/>
+                android:hint="Chủ đề (title)"/>
         </com.google.android.material.textfield.TextInputLayout>
 
         <Button
@@ -66,6 +66,6 @@
         android:backgroundTint="#3F51B5"
         app:tint="#FFFFFF"
         app:fabSize="normal"
-        android:contentDescription="Thêm thẻ bằng tay"/>
+        android:contentDescription="Thêm thẻ thủ công"/>
 
 </RelativeLayout>

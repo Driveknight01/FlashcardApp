@@ -1,140 +1,213 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<androidx.core.widget.NestedScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#F4F6FA"
-    android:paddingHorizontal="20dp">
+    android:fillViewport="true"
+    android:background="#F8F9FA">
 
-    <RelativeLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="34dp"> <com.google.android.material.card.MaterialCardView
-        android:id="@+id/btnFakeSearchContainer"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_toStartOf="@id/cardAdminAvatarWrapper"
-        android:layout_marginEnd="14dp"
-        android:layout_centerVertical="true"
-        app:cardCornerRadius="24dp"
-        app:cardElevation="2dp"
-        app:strokeWidth="0dp"
-        app:cardBackgroundColor="#FFFFFF">
+        android:padding="20dp">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center_vertical"
-            android:paddingHorizontal="16dp">
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/btnFakeSearchContainer"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="22dp"
+            android:layout_marginEnd="14dp"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp"
+            app:cardBackgroundColor="#EFEFEF"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/cardAdminAvatarWrapper">
 
-            <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:src="@android:drawable/ic_search_category_default"
-                app:tint="#1A237E"/>
-
-            <TextView
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:text="Nhập tiêu đề học phần..."
-                android:textColor="#9E9E9E"
-                android:textSize="15sp"/>
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp">
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@android:drawable/ic_search_category_default"
+                    app:tint="#616161"
+                    android:importantForAccessibility="no"/>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:text="Tìm kiếm"
+                    android:textColor="#757575"
+                    android:textSize="16sp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardAdminAvatarWrapper"
             android:layout_width="44dp"
             android:layout_height="44dp"
-            android:layout_alignParentEnd="true"
-            android:layout_centerVertical="true"
             app:cardCornerRadius="22dp"
+            app:cardElevation="0dp"
             app:strokeWidth="0dp"
-            app:cardBackgroundColor="#E65100">
+            app:cardBackgroundColor="#4D62FF"
+            app:layout_constraintTop_toTopOf="@+id/btnFakeSearchContainer"
+            app:layout_constraintBottom_toBottomOf="@+id/btnFakeSearchContainer"
+            app:layout_constraintEnd_toEndOf="parent">
             <TextView
+                android:id="@+id/txtAdminAvatarLetter"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:gravity="center"
                 android:text="A"
                 android:textColor="#FFFFFF"
-                android:textStyle="bold"
-                android:textSize="16sp"/>
+                android:textSize="18sp"
+                android:textStyle="bold"/>
         </com.google.android.material.card.MaterialCardView>
-    </RelativeLayout>
 
-    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#EAEAEA" android:layout_marginTop="20dp" android:layout_marginBottom="20dp"/>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
+        <TextView
+            android:id="@+id/lblAdminTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Quản trị hệ thống"
+            android:textSize="19sp"
+            android:textStyle="bold"
+            android:textColor="#212121"
+            app:layout_constraintTop_toBottomOf="@+id/btnFakeSearchContainer"
+            app:layout_constraintStart_toStartOf="parent"/>
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/btnMenuCreateDeck"
-            android:layout_width="match_parent"
-            android:layout_height="90dp"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="2dp"
+            android:layout_width="0dp"
+            android:layout_height="85dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginEnd="6dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="1dp"
             app:strokeWidth="0dp"
-            app:cardBackgroundColor="#2F45FF">
+            app:cardBackgroundColor="#4D62FF"
+            app:layout_constraintTop_toBottomOf="@+id/lblAdminTitle"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/btnMenuGlobalDecks">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:gravity="center_vertical"
-                android:paddingHorizontal="24dp">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="➕" android:textSize="24sp" />
-                <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="16dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Kiến tạo học phần mới" android:textColor="#FFFFFF" android:textSize="16sp" android:textStyle="bold"/>
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tạo bộ thẻ dùng chung (Có OCR)" android:textColor="#CDD1FF" android:textSize="12sp" android:layout_marginTop="2dp"/>
-                </LinearLayout>
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="8dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="➕" android:textSize="18sp" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tạo mới" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" android:layout_marginTop="4dp"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/btnMenuGlobalDecks"
-            android:layout_width="match_parent"
-            android:layout_height="90dp"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="2dp"
-            app:strokeWidth="0dp"
-            app:cardBackgroundColor="#1E2646">
+            android:layout_width="0dp"
+            android:layout_height="85dp"
+            android:layout_marginHorizontal="6dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="1dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="#EAEAEA"
+            app:cardBackgroundColor="#FFFFFF"
+            app:layout_constraintTop_toTopOf="@+id/btnMenuCreateDeck"
+            app:layout_constraintStart_toEndOf="@+id/btnMenuCreateDeck"
+            app:layout_constraintEnd_toStartOf="@+id/btnMenuUserList">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:gravity="center_vertical"
-                android:paddingHorizontal="24dp">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="📘" android:textSize="24sp" />
-                <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="16dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Thư viện học phần hệ thống" android:textColor="#FFFFFF" android:textSize="16sp" android:textStyle="bold"/>
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Quản lý, chỉnh sửa, xóa bộ thẻ gợi ý" android:textColor="#8A99AD" android:textSize="12sp" android:layout_marginTop="2dp"/>
-                </LinearLayout>
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="8dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="📝" android:textSize="18sp" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Sửa bộ thẻ" android:textColor="#212121" android:textSize="13sp" android:textStyle="bold" android:layout_marginTop="4dp"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/btnMenuUserList"
-            android:layout_width="match_parent"
-            android:layout_height="90dp"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="2dp"
-            app:strokeWidth="0dp"
-            app:cardBackgroundColor="#FFFFFF">
+            android:layout_width="0dp"
+            android:layout_height="85dp"
+            android:layout_marginStart="6dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="1dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="#EAEAEA"
+            app:cardBackgroundColor="#FFFFFF"
+            app:layout_constraintTop_toTopOf="@+id/btnMenuCreateDeck"
+            app:layout_constraintStart_toEndOf="@+id/btnMenuGlobalDecks"
+            app:layout_constraintEnd_toEndOf="parent">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:gravity="center_vertical"
-                android:paddingHorizontal="24dp">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="👥" android:textSize="24sp" />
-                <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="16dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Danh sách người dùng" android:textColor="#1A237E" android:textSize="16sp" android:textStyle="bold"/>
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Thống kê số lượng thẻ, thông tin học viên" android:textColor="#757575" android:textSize="12sp" android:layout_marginTop="2dp"/>
-                </LinearLayout>
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="8dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="👥" android:textSize="18sp" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Quản lý User" android:textColor="#212121" android:textSize="13sp" android:textStyle="bold" android:layout_marginTop="4dp"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
-    </LinearLayout>
-</LinearLayout>
+
+        <TextView
+            android:id="@+id/lblTrendingTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:text="Nhiều lượt học nhất"
+            android:textSize="19sp"
+            android:textStyle="bold"
+            android:textColor="#212121"
+            app:layout_constraintTop_toBottomOf="@+id/btnMenuCreateDeck"
+            app:layout_constraintStart_toStartOf="parent"/>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvAdminTrendingDecks"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:nestedScrollingEnabled="false"
+            app:layout_constraintTop_toBottomOf="@+id/lblTrendingTitle"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <TextView
+            android:id="@+id/lblMonitorTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:text="Vừa truy cập"
+            android:textSize="19sp"
+            android:textStyle="bold"
+            android:textColor="#212121"
+            app:layout_constraintTop_toBottomOf="@+id/rvAdminTrendingDecks"
+            app:layout_constraintStart_toStartOf="parent"/>
+
+        <TextView
+            android:id="@+id/txtActiveUserCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Top 5 hôm nay"
+            android:textColor="#4D62FF"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            app:layout_constraintTop_toTopOf="@+id/lblMonitorTitle"
+            app:layout_constraintBottom_toBottomOf="@+id/lblMonitorTitle"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvAdminActiveUsersToday"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:nestedScrollingEnabled="false"
+            app:layout_constraintTop_toBottomOf="@+id/lblMonitorTitle"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.core.widget.NestedScrollView>

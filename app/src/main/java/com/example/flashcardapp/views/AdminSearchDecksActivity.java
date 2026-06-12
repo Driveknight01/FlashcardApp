@@ -21,6 +21,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -32,10 +33,13 @@ public class AdminSearchDecksActivity extends AppCompatActivity {
     private final List<Map<String, Object>> allDecksList = new ArrayList<>();
     private final List<Map<String, Object>> filteredList = new ArrayList<>();
 
+    // 🌟 Bản đồ đồng bộ lượt học realtime cho Search
+    private final Map<String, Integer> searchStudyCountMap = new HashMap<>();
+
     private SuggestionAdapter suggestionAdapter;
     private FinalCardAdapter finalCardAdapter;
 
-    private boolean isDisplayingFinalCard = false; // Cờ kiểm soát trạng thái hiển thị
+    private boolean isDisplayingFinalCard = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,7 +49,6 @@ public class AdminSearchDecksActivity extends AppCompatActivity {
 
         mFirestore = FirebaseFirestore.getInstance();
 
-        // Cấu hình các nút chức năng đầu trang
         binding.btnSearchBack.setOnClickListener(v -> finish());
         binding.btnClearSearchText.setOnClickListener(v -> {
             binding.edtRealSearch.setText("");
@@ -54,15 +57,13 @@ public class AdminSearchDecksActivity extends AppCompatActivity {
 
         binding.rvSearchResults.setLayoutManager(new LinearLayoutManager(this));
 
-        // Khởi tạo sẵn 2 bộ Adapter phân tầng
         suggestionAdapter = new SuggestionAdapter(filteredList);
-        finalCardAdapter = new FinalCardAdapter(filteredList);
+        finalCardAdapter = new FinalCardAdapter(filteredList, searchStudyCountMap);
 
-        binding.rvSearchResults.setAdapter(suggestionAdapter); // Mặc định dùng tầng gợi ý chữ
+        binding.rvSearchResults.setAdapter(suggestionAdapter);
 
-        preloadGlobalDecks();
+        preloadGlobalDecksAndCounts();
 
-        // 🎯 LOGIC TÌM KIẾM PHÂN TẦNG REALTIME NÂNG CAO
         binding.edtRealSearch.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -78,7 +79,6 @@ public class AdminSearchDecksActivity extends AppCompatActivity {
                 } else {
                     binding.btnClearSearchText.setVisibility(View.VISIBLE);
 
-                    // Nếu người dùng gõ thêm chữ khi đang xem thẻ bài -> Trả lại tầng gợi ý chữ thô
                     if (isDisplayingFinalCard) {
                         switchToSuggestionState();
                     }
@@ -92,15 +92,35 @@ public class AdminSearchDecksActivity extends AppCompatActivity {
         });
     }
 
-    private void preloadGlobalDecks() {
-        mFirestore.collection("global_decks").get().addOnSuccessListener(snapshots -> {
-            if (snapshots == null) return;
-            allDecksList.clear();
-            for (QueryDocumentSnapshot doc : snapshots) {
-                Map<String, Object> data = doc.getData();
-                data.put("docId", doc.getId());
-                allDecksList.add(data);
+    private void preloadGlobalDecksAndCounts() {
+        // 🌟 LẤY CHUẨN LOGIC CỘNG DỒN TỪ PERSONAL_DECKS TRƯỚC
+        mFirestore.collection("personal_decks").get().addOnSuccessListener(personalSnapshots -> {
+            if (personalSnapshots != null) {
+                searchStudyCountMap.clear();
+                for (QueryDocumentSnapshot doc : personalSnapshots) {
+                    String title = doc.getString("title");
+                    String author = doc.getString("author");
+                    if (title != null && "Hệ thống".equals(author)) {
+                        int count = 0;
+                        Object studyCountObj = doc.get("studyCount");
+                        if (studyCountObj instanceof Number) {
+                            count = ((Number) studyCountObj).intValue();
+                        }
+                        searchStudyCountMap.put(title, searchStudyCountMap.getOrDefault(title, 0) + count);
+                    }
+                }
             }
+
+            // Sau khi tính xong lượt học mới nạp danh sách gốc từ global_decks
+            mFirestore.collection("global_decks").get().addOnSuccessListener(snapshots -> {
+                if (snapshots == null) return;
+                allDecksList.clear();
+                for (QueryDocumentSnapshot doc : snapshots) {
+                    Map<String, Object> data = doc.getData();
+                    data.put("docId", doc.getId());
+                    allDecksList.add(data);
+                }
+            });
         });
     }
 
@@ -117,26 +137,20 @@ public class AdminSearchDecksActivity extends AppCompatActivity {
         suggestionAdapter.notifyDataSetChanged();
     }
 
-    // Luồng xử lý ẩn bàn phím và kích hoạt vẽ Khối thẻ bài chi tiết
     private void onSuggestionClicked(Map<String, Object> selectedDeck) {
         isDisplayingFinalCard = true;
 
-        // 1. Ẩn bàn phím điện thoại xuống
         View view = this.getCurrentFocus();
         if (view != null) {
             InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
             imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
         }
 
-        // 2. Thay đổi nội dung ô nhập chữ bằng đúng tên bộ thẻ được chọn
-        binding.edtRealSearch.removeTextChangedListener(null); // Tạm dừng lắng nghe để tránh lặp vô hạn
         binding.edtRealSearch.setText(String.valueOf(selectedDeck.get("title")));
 
-        // 3. Cô lập mảng dữ liệu, chỉ giữ lại đúng 1 bộ thẻ được click chọn
         filteredList.clear();
         filteredList.add(selectedDeck);
 
-        // 4. Tráo đổi adapter sang tầng vẽ Khối thẻ bài Doanh nghiệp
         binding.rvSearchResults.setAdapter(finalCardAdapter);
         finalCardAdapter.notifyDataSetChanged();
     }
@@ -173,7 +187,6 @@ public class AdminSearchDecksActivity extends AppCompatActivity {
                 }).show();
     }
 
-    // ================= TẦNG 1: ADAPTER CHỈ HIỂN THỊ DÒNG CHỮ GỢI Ý =================
     private class SuggestionAdapter extends RecyclerView.Adapter<SuggestionAdapter.ViewHolder> {
         private final List<Map<String, Object>> list;
         public SuggestionAdapter(List<Map<String, Object>> list) { this.list = list; }
@@ -189,7 +202,6 @@ public class AdminSearchDecksActivity extends AppCompatActivity {
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             Map<String, Object> deck = list.get(position);
             holder.txtSuggest.setText(String.valueOf(deck.get("title")));
-            // Bấm vào dòng chữ -> Đổi trạng thái hiển thị khối thẻ bài
             holder.itemView.setOnClickListener(v -> onSuggestionClicked(deck));
         }
 
@@ -202,10 +214,14 @@ public class AdminSearchDecksActivity extends AppCompatActivity {
         }
     }
 
-    // ================= TẦNG 2: ADAPTER HIỂN THỊ KHỐI THẺ BÀI CHI TIẾT SỬA/XÓA =================
     private class FinalCardAdapter extends RecyclerView.Adapter<FinalCardAdapter.ViewHolder> {
         private final List<Map<String, Object>> list;
-        public FinalCardAdapter(List<Map<String, Object>> list) { this.list = list; }
+        private final Map<String, Integer> countMap;
+
+        public FinalCardAdapter(List<Map<String, Object>> list, Map<String, Integer> countMap) {
+            this.list = list;
+            this.countMap = countMap;
+        }
 
         @NonNull
         @Override
@@ -218,9 +234,20 @@ public class AdminSearchDecksActivity extends AppCompatActivity {
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             Map<String, Object> deck = list.get(position);
-            holder.txtTitle.setText(String.valueOf(deck.get("title")));
+            String title = String.valueOf(deck.get("title"));
+
+            holder.txtTitle.setText(title);
+
             List<?> cards = (List<?>) deck.get("cards");
-            holder.txtCount.setText((cards != null ? cards.size() : 0) + " thuật ngữ");
+            int cardSize = cards != null ? cards.size() : 0;
+
+            // 🌟 ĐỒNG BỘ ĐÈ: Tìm số lượt học cộng dồn từ Map theo Title
+            int totalStudyCount = 0;
+            if (countMap.containsKey(title)) {
+                totalStudyCount = countMap.get(title);
+            }
+
+            holder.txtCount.setText(cardSize + " thuật ngữ  •  " + totalStudyCount + " lượt học");
             holder.itemView.setOnClickListener(v -> showActionDialog(deck));
         }
 
@@ -231,8 +258,8 @@ public class AdminSearchDecksActivity extends AppCompatActivity {
             TextView txtTitle, txtCount;
             ViewHolder(View iv) {
                 super(iv);
-                txtTitle = iv.findViewById(R.id.txtGlobalDeckTitle);
-                txtCount = iv.findViewById(R.id.txtGlobalCardCount);
+                txtTitle = iv.findViewById(R.id.txtAdminDeckTitle);
+                txtCount = iv.findViewById(R.id.txtAdminCardCount);
             }
         }
     }

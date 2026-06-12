@@ -20,6 +20,9 @@ public class ProfileActivity extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private FirebaseFirestore mFirestore;
 
+    // 🌟 Biến cờ hiệu nhận biết phân quyền để xử lý luồng giao diện thông minh
+    private String userRole = "user";
+
     // Launcher đảm nhận mở kho ảnh máy và lấy URI ảnh về
     private final ActivityResultLauncher<Intent> imagePickerLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
@@ -27,12 +30,8 @@ public class ProfileActivity extends AppCompatActivity {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     Uri selectedImageUri = result.getData().getData();
                     if (selectedImageUri != null) {
-                        // Đổ ảnh vừa chọn lên ImageView ngay lập tức
                         binding.imgProfileAvatar.setImageURI(selectedImageUri);
                         binding.txtProfileAvatarLetter.setVisibility(android.view.View.GONE);
-
-                        // Ở đây bạn có thể viết thêm hàm upload selectedImageUri lên Firebase Storage
-                        // rồi lưu URL vào Firestore nếu muốn lưu vĩnh viễn trên mây.
                         Toast.makeText(this, "Đã cập nhật ảnh đại diện tạm thời!", Toast.LENGTH_SHORT).show();
                     }
                 }
@@ -48,7 +47,13 @@ public class ProfileActivity extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         mFirestore = FirebaseFirestore.getInstance();
 
-        binding.toolbarProfile.setNavigationOnClickListener(v -> finish());
+        // 🌟 BẮT INTENT: Hứng biến phân quyền từ Trang chủ gửi sang
+        if (getIntent() != null && getIntent().hasExtra("USER_ROLE")) {
+            userRole = getIntent().getStringExtra("USER_ROLE");
+        }
+
+        // Đóng màn hình quay lại đúng trang chủ ban đầu khi click Toolbar nút Back
+        binding.toolbarProfile.setNavigationOnClickListener(v -> handleBackNavigation());
 
         // 1. Tải thông tin cá nhân của User hiện tại lên màn hình
         loadUserProfile();
@@ -67,7 +72,7 @@ public class ProfileActivity extends AppCompatActivity {
                     .setPositiveButton("Đăng xuất", (dialog, which) -> {
                         mAuth.signOut(); // Xóa session đăng nhập trên hệ thống Firebase
 
-                        // Điều hướng dứt điểm về LoginActivity và xóa sạch các Activity cũ
+                        // Điều hướng dứt điểm về LoginActivity và xóa sạch các Activity cũ trong Stack
                         Intent intent = new Intent(ProfileActivity.this, LoginActivity.class);
                         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                         startActivity(intent);
@@ -78,28 +83,49 @@ public class ProfileActivity extends AppCompatActivity {
         });
     }
 
+    // Ép bắt cả sự kiện bấm nút Back vật lý hoặc cử chỉ vuốt viền dưới đáy điện thoại
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        handleBackNavigation();
+    }
+
+    // 🌟 LUỒNG ĐIỀU HƯỚNG QUAY LẠI CHUẨN XÁC
+    private void handleBackNavigation() {
+        // Chỉ cần lệnh finish() để giải phóng ProfileActivity hiện hành khỏi Stack,
+        // hệ thống Android sẽ tự động đưa người dùng về lại Activity trang chủ nằm liền kề trước đó.
+        finish();
+    }
+
     private void loadUserProfile() {
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser != null) {
             String uid = currentUser.getUid();
 
-            // Đọc tên từ Firestore bảng users
+            // Nhận diện Admin: Đổi màu chữ tên tài khoản sang sắc hồng thẫm nổi bật
+            if ("admin".equals(userRole)) {
+                binding.txtProfileName.setTextColor(android.graphics.Color.parseColor("#E91E63"));
+            }
+
             mFirestore.collection("users").document(uid).get()
                     .addOnSuccessListener(documentSnapshot -> {
                         if (binding == null) return;
                         if (documentSnapshot.exists()) {
                             String name = documentSnapshot.getString("name");
                             if (name != null && !name.trim().isEmpty()) {
-                                binding.txtProfileName.setText(name);
+                                // Nếu là Admin hệ thống, đính kèm thêm nhãn text hiển thị
+                                if ("admin".equals(userRole)) {
+                                    binding.txtProfileName.setText(name + " (Quản trị viên)");
+                                } else {
+                                    binding.txtProfileName.setText(name);
+                                }
 
-                                // Thiết lập chữ cái đầu tiên làm avatar dự phòng giống trang chủ
                                 String firstLetter = name.trim().substring(0, 1).toUpperCase();
                                 binding.txtProfileAvatarLetter.setText(firstLetter);
                             }
                         } else {
-                            // Nếu bảng users chưa có dữ liệu tên, lấy tạm DisplayName bên Auth
                             String displayName = currentUser.getDisplayName();
-                            binding.txtProfileName.setText(displayName != null ? displayName : "Học viên");
+                            binding.txtProfileName.setText(displayName != null ? displayName : ("admin".equals(userRole) ? "Quản trị viên" : "Học viên"));
                         }
                     })
                     .addOnFailureListener(e -> {
