@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    // Thêm plugin Google Services để kết nối Firebase (đã khai báo ở bước 1)
     alias(libs.plugins.google.services)
 }
 
@@ -32,37 +31,32 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    // Bật tính năng View Binding giúp code Java ánh xạ UI sạch sẽ, an toàn
     viewBinding {
         enable = true
     }
 }
 
 dependencies {
-    // Các thư viện mặc định hệ thống của bạn
     implementation(libs.activity.ktx)
     implementation(libs.appcompat)
     implementation(libs.constraintlayout)
     implementation(libs.material)
 
-    // Firebase BoM và các dịch vụ đi kèm (Auth, Firestore)
+    // Firebase BoM and services
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
 
-    // Google ML Kit để làm tính năng quét chữ OCR từ tài liệu
+    // ML Kit text recognition
     implementation(libs.mlkit.text.recognition)
 
-    // Thư viện Card Stack View hỗ trợ vuốt thẻ (Swipe) như Tinder cực mượt
+    // Card Stack View for swipeable cards
     implementation(libs.card.stack.view)
 
-    // Thư viện phục vụ Unit Test mặc định
     testImplementation(libs.junit)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.ext.junit)
     implementation("com.google.code.gson:gson:2.10.1")
-    // Thư viện Authentication của Firebase
-    implementation ("com.google.firebase:firebase-auth")
-    // Thư viện Google Sign-In chính chủ từ Google Services
-    implementation ("com.google.android.gms:play-services-auth:21.2.0")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 }

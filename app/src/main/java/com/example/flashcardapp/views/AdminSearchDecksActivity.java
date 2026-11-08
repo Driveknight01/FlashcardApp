@@ -33,7 +33,7 @@ public class AdminSearchDecksActivity extends AppCompatActivity {
     private final List<Map<String, Object>> allDecksList = new ArrayList<>();
     private final List<Map<String, Object>> filteredList = new ArrayList<>();
 
-    // 🌟 Bản đồ đồng bộ lượt học realtime cho Search
+    // Study count cache mapped by deck title
     private final Map<String, Integer> searchStudyCountMap = new HashMap<>();
 
     private SuggestionAdapter suggestionAdapter;
@@ -93,7 +93,7 @@ public class AdminSearchDecksActivity extends AppCompatActivity {
     }
 
     private void preloadGlobalDecksAndCounts() {
-        // 🌟 LẤY CHUẨN LOGIC CỘNG DỒN TỪ PERSONAL_DECKS TRƯỚC
+        // Aggregate study counts from personal_decks before loading global decks
         mFirestore.collection("personal_decks").get().addOnSuccessListener(personalSnapshots -> {
             if (personalSnapshots != null) {
                 searchStudyCountMap.clear();
@@ -111,7 +111,7 @@ public class AdminSearchDecksActivity extends AppCompatActivity {
                 }
             }
 
-            // Sau khi tính xong lượt học mới nạp danh sách gốc từ global_decks
+            // Load global decks after calculating study counts
             mFirestore.collection("global_decks").get().addOnSuccessListener(snapshots -> {
                 if (snapshots == null) return;
                 allDecksList.clear();
@@ -164,7 +164,7 @@ public class AdminSearchDecksActivity extends AppCompatActivity {
         String docId = String.valueOf(deck.get("docId"));
         String title = String.valueOf(deck.get("title"));
 
-        String[] options = {"✏️ Biên tập nội dung học phần", "❌ Xóa học phần này"};
+        String[] options = {"✏️ Sửa nội dung thẻ", "❌ Xóa thẻ này"};
         new MaterialAlertDialogBuilder(this)
                 .setTitle(title)
                 .setItems(options, (dialog, which) -> {
@@ -241,7 +241,7 @@ public class AdminSearchDecksActivity extends AppCompatActivity {
             List<?> cards = (List<?>) deck.get("cards");
             int cardSize = cards != null ? cards.size() : 0;
 
-            // 🌟 ĐỒNG BỘ ĐÈ: Tìm số lượt học cộng dồn từ Map theo Title
+            // Resolve cumulative study count for deck title
             int totalStudyCount = 0;
             if (countMap.containsKey(title)) {
                 totalStudyCount = countMap.get(title);

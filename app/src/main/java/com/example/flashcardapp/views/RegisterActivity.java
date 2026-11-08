@@ -23,15 +23,12 @@ public class RegisterActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Sử dụng View Binding để kết nối giao diện XML sạch sẽ
         binding = ActivityRegisterBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        // Khởi tạo các công cụ của Firebase
         mAuth = FirebaseAuth.getInstance();
         mFirestore = FirebaseFirestore.getInstance();
 
-        // Xử lý sự kiện khi bấm nút Đăng ký
         binding.btnRegister.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -39,7 +36,6 @@ public class RegisterActivity extends AppCompatActivity {
             }
         });
 
-        // Chuyển sang màn hình Đăng nhập khi click dòng text cuối
         binding.txtNavigateToLogin.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -49,12 +45,12 @@ public class RegisterActivity extends AppCompatActivity {
         });
     }
 
+    // 1. Validate user inputs
     private void performRegister() {
         String name = binding.edtRegisterName.getText().toString().trim();
         String email = binding.edtRegisterEmail.getText().toString().trim();
         String password = binding.edtRegisterPassword.getText().toString().trim();
 
-        // Kiểm tra dữ liệu nhập vào không được bỏ trống
         if (TextUtils.isEmpty(name)) {
             Toast.makeText(this, "Vui lòng nhập họ và tên", Toast.LENGTH_SHORT).show();
             return;
@@ -68,28 +64,25 @@ public class RegisterActivity extends AppCompatActivity {
             return;
         }
 
-        // Bước 1: Tạo tài khoản trên Firebase Authentication
+        // 2. Create user account with Firebase Authentication
         mAuth.createUserWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
-                        // Lấy thông tin User vừa được tạo thành công
                         FirebaseUser firebaseUser = mAuth.getCurrentUser();
                         if (firebaseUser != null) {
                             String uid = firebaseUser.getUid();
 
-                            // Bước 2: Tạo cấu trúc dữ liệu để lưu vào Firestore database nhằm phân quyền
+                            // Store default user profile document in Firestore
                             Map<String, Object> userMap = new HashMap<>();
                             userMap.put("uid", uid);
                             userMap.put("name", name);
                             userMap.put("email", email);
-                            userMap.put("role", "user"); // Mặc định đăng ký mới luôn là quyền "user"
+                            userMap.put("role", "user");
 
-                            // Lưu vào bộ sưu tập "users", tài liệu có ID trùng với UID tài khoản
                             mFirestore.collection("users").document(uid)
                                     .set(userMap)
                                     .addOnSuccessListener(aVoid -> {
                                         Toast.makeText(RegisterActivity.this, "Đăng ký và phân quyền thành công!", Toast.LENGTH_SHORT).show();
-                                        // Đăng ký xong, chuyển sang màn hình Đăng nhập
                                         startActivity(new Intent(RegisterActivity.this, LoginActivity.class));
                                         finish();
                                     })
@@ -98,7 +91,6 @@ public class RegisterActivity extends AppCompatActivity {
                                     });
                         }
                     } else {
-                        // Nếu Firebase Auth báo lỗi (ví dụ: email đã tồn tại)
                         Toast.makeText(RegisterActivity.this, "Đăng ký thất bại: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });

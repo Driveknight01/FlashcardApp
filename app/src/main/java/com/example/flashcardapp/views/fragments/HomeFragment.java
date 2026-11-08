@@ -39,7 +39,7 @@ public class HomeFragment extends Fragment implements HomeDeckAdapter.OnDeckClic
     private HomeDeckAdapter adminAdapter;
     private HomeDeckAdapter recentAdapter;
 
-    // 🌟 QUAN TRỌNG: Quản lý các trình lắng nghe biến động dữ liệu Realtime liên tục từ Firebase
+    // Realtime snapshot listeners
     private ListenerRegistration continueStudyListener;
     private ListenerRegistration adminGlobalDecksListener;
     private ListenerRegistration recentUserDecksListener;
@@ -61,14 +61,12 @@ public class HomeFragment extends Fragment implements HomeDeckAdapter.OnDeckClic
         setupRecyclerViews();
         setupUserAvatar();
 
-        // Chặn bàn phím, điều hướng sang trang tìm kiếm viên thuốc đồng bộ
         binding.edtHomeSearch.setFocusable(false);
         binding.edtHomeSearch.setOnClickListener(v -> {
             Intent intent = new Intent(getActivity(), UserSearchDecksActivity.class);
             startActivity(intent);
         });
 
-        // 🚀 KÍCH HOẠT ĐỒNG BỘ REALTIME TOÀN DIỆN KHI VỪA KHỞI CHẠY GIAO DIỆN KHÔNG PHỤ THUỘC ONRESUME
         if (mAuth.getCurrentUser() != null) {
             startRealtimeDashboardListening();
         }
@@ -101,7 +99,7 @@ public class HomeFragment extends Fragment implements HomeDeckAdapter.OnDeckClic
             binding.txtAvatarLetter.setText("N");
         }
 
-        // 🌟 ĐỒNG BỘ: Ấn vào cụm bọc Avatar góc phải sẽ nhảy sang trang Hồ sơ cá nhân kèm cờ định danh "user"
+        // Open profile screen with user role
         binding.cardUserAvatarWrapper.setOnClickListener(v -> {
             Intent intent = new Intent(getActivity(), ProfileActivity.class);
             intent.putExtra("USER_ROLE", "user");
@@ -109,13 +107,13 @@ public class HomeFragment extends Fragment implements HomeDeckAdapter.OnDeckClic
         });
     }
 
-    // 🌟 KHỞI CHẠY VÒNG PHẢN XẠ REALTIME CHÉO BA LUỒNG TRÊN SÂN NHÀ TRANG CHỦ
+    // Realtime listeners for home dashboard sections
     private void startRealtimeDashboardListening() {
         FirebaseUser user = mAuth.getCurrentUser();
         if (user == null) return;
         String currentUid = user.getUid();
 
-        // 📡 CỔNG 1: Lắng nghe Realtime khối tiến độ học tiếp - Nếu bài cũ bị xóa, tự nảy bài gần nhất lên lấp trống tức thì
+        // 1. Continue learning progress banner
         continueStudyListener = mFirestore.collection("personal_decks")
                 .whereEqualTo("userId", currentUid)
                 .orderBy("lastModified", Query.Direction.DESCENDING)
@@ -128,7 +126,7 @@ public class HomeFragment extends Fragment implements HomeDeckAdapter.OnDeckClic
                     }
                 });
 
-        // 📡 CỔNG 2: Lắng nghe Realtime mục "Bộ thẻ hệ thống mới nhất" - Tự động co giãn khi Admin Thêm/Xóa
+        // 2. Latest global system decks
         adminGlobalDecksListener = mFirestore.collection("global_decks")
                 .addSnapshotListener((snapshots, error) -> {
                     if (error != null || binding == null) return;
@@ -146,7 +144,7 @@ public class HomeFragment extends Fragment implements HomeDeckAdapter.OnDeckClic
                             tempList.add(data);
                         }
 
-                        // Sắp xếp mảng thô trên RAM: Bảo toàn ngày tạo vì Edit Mode không ghi đè lastModified nữa
+                        // Sort by lastModified descending
                         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
                             tempList.sort((o1, o2) -> {
                                 long t1 = o1.containsKey("lastModified") ? ((Number) o1.get("lastModified")).longValue() : 0L;
@@ -164,7 +162,7 @@ public class HomeFragment extends Fragment implements HomeDeckAdapter.OnDeckClic
                     adminAdapter.notifyDataSetChanged();
                 });
 
-        // 📡 CỔNG 3: Lắng nghe Realtime mục "Đã học gần đây" - Phản xạ lập tức khi tiến trình cá nhân biến động
+        // 3. Recently studied user decks
         recentUserDecksListener = mFirestore.collection("personal_decks")
                 .whereEqualTo("userId", currentUid)
                 .orderBy("lastModified", Query.Direction.DESCENDING)
@@ -285,7 +283,7 @@ public class HomeFragment extends Fragment implements HomeDeckAdapter.OnDeckClic
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        // 🌟 GIẢI PHÓNG TÀI NGUYÊN: Hủy bỏ đăng ký 3 trình nghe khi thoát màn hình để bảo vệ RAM
+        // Detach listeners to prevent memory leaks
         if (continueStudyListener != null) continueStudyListener.remove();
         if (adminGlobalDecksListener != null) adminGlobalDecksListener.remove();
         if (recentUserDecksListener != null) recentUserDecksListener.remove();

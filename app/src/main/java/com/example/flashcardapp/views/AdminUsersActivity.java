@@ -58,7 +58,7 @@ public class AdminUsersActivity extends AppCompatActivity {
                     originalUsersList.clear();
                     originalUsersList.addAll(snapshots.getDocuments());
 
-                    // Thực hiện lọc lại danh sách dựa theo chuỗi text hiện tại trong ô tìm kiếm
+                    // Re-apply filter with current query text
                     filterUserList(edtSearchUser.getText().toString());
                 });
     }
@@ -99,12 +99,12 @@ public class AdminUsersActivity extends AppCompatActivity {
         adapter.notifyDataSetChanged();
     }
 
-    // 🌟 HỘP THOẠI HÀNH ĐỘNG QUẢN TRỊ VIÊN
+    // Admin management action dialog
     private void showUserActionMenu(DocumentSnapshot userDoc) {
-        String uId = userDoc.getId(); // Lấy chuẩn UID tài khoản (ví dụ: 2w0gW...)
+        String uId = userDoc.getId();
         String name = userDoc.getString("name") != null ? userDoc.getString("name") : "Học viên ẩn danh";
 
-        // 🌟 VÁ LỖI AN TOÀN: Nếu trường status chưa tồn tại (null), mặc định hiểu là "active"
+        // Default to active if status is unset
         String currentStatus = userDoc.getString("status") != null ? userDoc.getString("status") : "active";
 
         String statusOption = "active".equals(currentStatus) ? "  Khóa tài khoản này" : "  Mở khóa tài khoản";
@@ -114,7 +114,7 @@ public class AdminUsersActivity extends AppCompatActivity {
                 .setTitle("Người dùng: " + name)
                 .setItems(options, (dialog, which) -> {
                     if (which == 0) {
-                        // Logic Khóa / Mở khóa
+                        // Toggle account status between active and banned
                         String newStatus = "active".equals(currentStatus) ? "banned" : "active";
 
                         mFirestore.collection("users").document(uId)
@@ -125,7 +125,7 @@ public class AdminUsersActivity extends AppCompatActivity {
                                 })
                                 .addOnFailureListener(e -> Toast.makeText(AdminUsersActivity.this, "Thao tác thất bại: " + e.getMessage(), Toast.LENGTH_SHORT).show());
                     } else {
-                        // 🌟 Logic Xem kho thẻ cá nhân: Truyền UID và Tên sang Activity phụ
+                        // Open user decks review screen
                         Intent intent = new Intent(AdminUsersActivity.this, AdminViewUserDecksActivity.class);
                         intent.putExtra("TARGET_USER_UID", uId);
                         intent.putExtra("TARGET_USER_NAME", name);
@@ -134,7 +134,7 @@ public class AdminUsersActivity extends AppCompatActivity {
                 }).show();
     }
 
-    // ================= ADAPTER HIỂN THỊ PHẲNG ĐỒNG BỘ =================
+    // Adapter for user management list
     private class UsersManagementAdapter extends RecyclerView.Adapter<UsersManagementAdapter.ViewHolder> {
         private final List<DocumentSnapshot> list;
 
@@ -158,28 +158,27 @@ public class AdminUsersActivity extends AppCompatActivity {
             holder.txtName.setText(name != null ? name : "Học viên ẩn danh");
             holder.txtStats.setText(email != null ? email : "Không có thông tin email");
 
-            // Xử lý vẽ ký tự đầu tiên lên ô vuông Avatar phẳng
+            // Render user avatar initial
             if (name != null && !name.trim().isEmpty()) {
                 holder.txtAvatarLetter.setText(name.substring(0, 1).toUpperCase(Locale.ROOT));
             } else {
                 holder.txtAvatarLetter.setText("U");
             }
 
-            // Kiểm tra phân quyền để ẩn/hiện nhãn ADMIN
+            // Show admin role badge if applicable
             if ("admin".equals(role)) {
                 holder.txtRoleBadge.setVisibility(View.VISIBLE);
             } else {
                 holder.txtRoleBadge.setVisibility(View.GONE);
             }
 
-            // Kiểm tra trạng thái khóa tài khoản để bật cảnh báo màu đỏ mép phải
+            // Highlight banned user status
             if ("banned".equals(status)) {
                 holder.txtStatusAlert.setVisibility(View.VISIBLE);
             } else {
                 holder.txtStatusAlert.setVisibility(View.GONE);
             }
 
-            // Bắt sự kiện Tap vào dòng học viên để hiển thị menu tính năng tối cao
             holder.itemView.setOnClickListener(v -> showUserActionMenu(doc));
         }
 

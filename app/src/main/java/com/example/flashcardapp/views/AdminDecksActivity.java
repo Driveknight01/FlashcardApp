@@ -33,7 +33,6 @@ public class AdminDecksActivity extends AppCompatActivity {
     private final Map<String, Integer> globalStudyCountMap = new HashMap<>();
     private GlobalDecksAdapter adapter;
 
-    // Quản lý trình lắng nghe để gỡ bỏ khi hủy màn hình, tránh rò rỉ RAM bộ nhớ
     private ListenerRegistration personalDecksListener;
     private ListenerRegistration globalDecksListener;
 
@@ -56,7 +55,7 @@ public class AdminDecksActivity extends AppCompatActivity {
 
     @SuppressLint("NotifyDataSetChanged")
     private void loadGlobalAndCalculatedCountsRealtime() {
-        // LUỒNG 1 REALTIME: Quét liên tục bảng personal_decks để tính tổng lượt học cộng dồn
+        // Aggregate study counts across personal decks created from system decks
         personalDecksListener = mFirestore.collection("personal_decks")
                 .addSnapshotListener((personalSnapshots, pError) -> {
                     if (personalSnapshots == null) return;
@@ -78,14 +77,13 @@ public class AdminDecksActivity extends AppCompatActivity {
                     if (adapter != null) adapter.notifyDataSetChanged();
                 });
 
-        // 🌟 LUỒNG 2 REALTIME (ĐÃ NÂNG CẤP): Lắng nghe Realtime bảng bộ thẻ hệ thống gốc, tự động co giãn khi có Thêm/Xóa
+        // Listen for global deck changes and keep items sorted by lastModified descending
         globalDecksListener = mFirestore.collection("global_decks")
                 .addSnapshotListener((globalSnapshots, gError) -> {
                     if (globalSnapshots == null) return;
 
                     List<DocumentSnapshot> docs = new ArrayList<>(globalSnapshots.getDocuments());
 
-                    // Sắp xếp bài mới nhất lên vị trí đầu tiên
                     Collections.sort(docs, (d1, d2) -> {
                         long t1 = d1.contains("lastModified") && d1.get("lastModified") != null ? d1.getLong("lastModified") : 0L;
                         long t2 = d2.contains("lastModified") && d2.get("lastModified") != null ? d2.getLong("lastModified") : 0L;
@@ -98,19 +96,19 @@ public class AdminDecksActivity extends AppCompatActivity {
                 });
     }
 
-    // 🚀 THUẬT TOÁN XÓA DIỆN RỘNG REALTIME (BATCH CLEAN-UP)
+    // Cascades deletion of a global deck and all associated personal deck progress
     private void executeGlobalDeleteFlow(String deckId, String deckTitle) {
         new AlertDialog.Builder(this)
-                .setTitle("🚨 Xóa bộ thẻ hệ thống?")
+                .setTitle("Xóa bộ thẻ hệ thống?")
                 .setMessage("Bạn có chắc chắn muốn xóa vĩnh viễn bộ thẻ \"" + deckTitle + "\" không?\n\nThao tác này sẽ xóa  toàn bộ tiến trình học tập của tất cả người dùng.")
                 .setPositiveButton("Xóa vĩnh viễn", (dialog, which) -> {
 
-                    // Bước 1: Xóa tài liệu gốc trong global_decks
+                    // 1. Delete source document from global_decks
                     mFirestore.collection("global_decks").document(deckId)
                             .delete()
                             .addOnSuccessListener(aVoid -> {
 
-                                // Bước 2: Quét sạch tiến trình cá nhân của tất cả học viên bằng WriteBatch hàng loạt
+                                // 2. Batch-delete related personal decks and progress records
                                 mFirestore.collection("personal_decks").get()
                                         .addOnSuccessListener(snapshots -> {
                                             WriteBatch batch = mFirestore.batch();
@@ -118,7 +116,7 @@ public class AdminDecksActivity extends AppCompatActivity {
 
                                             for (QueryDocumentSnapshot doc : snapshots) {
                                                 String docId = doc.getId();
-                                                // Tìm các tài liệu tiến trình có dạng UID_deckId hoặc bằng chính deckId
+                                                // Matches copies cloned as UID_deckId or direct ID references
                                                 if (docId.endsWith("_" + deckId) || docId.equals(deckId)) {
                                                     batch.delete(doc.getReference());
                                                     countCleaned++;
@@ -139,13 +137,11 @@ public class AdminDecksActivity extends AppCompatActivity {
                 .show();
     }
 
-    // Giao diện Adapter bọc Inner-Class xử lý sự kiện click và giữ chặt
     private static class GlobalDecksAdapter extends RecyclerView.Adapter<GlobalDecksAdapter.ViewHolder> {
         private final List<DocumentSnapshot> list;
         private final Map<String, Integer> countMap;
         private final OnDeckLongClickListener longClickListener;
 
-        // Định nghĩa Interface nhận callback xử lý sự kiện xóa từ Activity truyền sang
         public interface OnDeckLongClickListener {
             void onDeckLongClick(String deckId, String deckTitle);
         }
@@ -179,7 +175,6 @@ public class AdminDecksActivity extends AppCompatActivity {
             holder.txtTitle.setText(title != null ? title : "Chưa đặt tên học phần");
             holder.txtCount.setText(cardSize + " thuật ngữ  •  " + totalStudyCount + " lượt học");
 
-            // Sự kiện Click ngắn: Mở màn hình chỉnh sửa nội dung thông thường
             holder.itemView.setOnClickListener(v -> {
                 Intent intent = new Intent(v.getContext(), CreateDeckActivity.class);
                 intent.putExtra("DECK_ID", doc.getId());
@@ -188,11 +183,11 @@ public class AdminDecksActivity extends AppCompatActivity {
                 v.getContext().startActivity(intent);
             });
 
-            // 🌟 CHỨC NĂNG HOLD (LONG CLICK) ĐÚNG UX THEO YÊU CẦU: Giữ chặt dòng thẻ bật Dialog xóa ẩn
+            // Long-click triggers confirmation dialog for deck deletion
             holder.itemView.setOnLongClickListener(v -> {
                 if (longClickListener != null && title != null) {
                     longClickListener.onDeckLongClick(doc.getId(), title);
-                    return true; // Trả về true để hệ thống hiểu sự kiện Long Click đã được tiêu thụ hoàn tất
+                    return true;
                 }
                 return false;
             });
@@ -217,7 +212,6 @@ public class AdminDecksActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Hủy đăng ký lắng nghe hoàn toàn khi thoát Activity để chống rò rỉ RAM bộ nhớ giải phóng tài nguyên
         if (personalDecksListener != null) personalDecksListener.remove();
         if (globalDecksListener != null) globalDecksListener.remove();
     }

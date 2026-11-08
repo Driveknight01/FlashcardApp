@@ -3,13 +3,13 @@ package com.example.flashcardapp.models;
 import java.util.List;
 
 public class Deck {
-    private String id;               // ID duy nhất của bộ thẻ trên Firebase
-    private String title;            // Tiêu đề học phần (ví dụ: "Từ vựng Unit 1")
-    private String description;      // Mô tả ngắn gọn
-    private List<Flashcard> cards;   // Danh sách các tấm thẻ bên trong bộ này
-    private String creatorId;        // ID của người tạo (Nếu là "admin" thì hiển thị cho tất cả mọi người)
+    private String id;
+    private String title;
+    private String description;
+    private List<Flashcard> cards;
+    private String creatorId;
 
-    // Constructor không tham số bắt buộc cho Firebase
+    // Required empty constructor for Firestore deserialization
     public Deck() {
     }
 
@@ -21,9 +21,9 @@ public class Deck {
         this.creatorId = creatorId;
     }
 
-    // --- CÁC HÀM TIỆN ÍCH DÙNG ĐỂ HIỂN THỊ TIẾN TRÌNH TRÊN GIAO DIỆN ---
-
-    // Lấy số lượng thẻ ĐÃ THUỘC (Phục vụ hiển thị: "Đã thuộc X / Y thẻ")
+    /**
+     * Returns count of mastered flashcards in the deck.
+     */
     public int getLearnedCount() {
         if (cards == null) return 0;
         int count = 0;
@@ -35,12 +35,13 @@ public class Deck {
         return count;
     }
 
-    // Lấy TỔNG SỐ LƯỢNG THẺ có trong bộ thẻ này
+    /**
+     * Returns total number of flashcards in the deck.
+     */
     public int getTotalCount() {
         return cards != null ? cards.size() : 0;
     }
 
-    // --- CÁC HÀM GETTER VÀ SETTER THÔNG THƯỜNG ---
     public String getId() {
         return id;
     }

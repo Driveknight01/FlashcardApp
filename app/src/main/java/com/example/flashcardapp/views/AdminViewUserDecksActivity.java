@@ -32,10 +32,9 @@ public class AdminViewUserDecksActivity extends AppCompatActivity {
 
         mFirestore = FirebaseFirestore.getInstance();
 
-        // Xử lý nút quay lại màn hình danh sách học viên
         findViewById(R.id.btnBackFromUserDecks).setOnClickListener(v -> finish());
 
-        // Hứng UID và Tên học viên từ màn hình AdminUsersActivity truyền sang
+        // Retrieve target user UID and name from intent extras
         String userUid = getIntent().getStringExtra("TARGET_USER_UID");
         String userName = getIntent().getStringExtra("TARGET_USER_NAME");
 
@@ -44,7 +43,6 @@ public class AdminViewUserDecksActivity extends AppCompatActivity {
             txtHeaderTitle.setText("Kho thẻ của: " + userName);
         }
 
-        // Khởi tạo RecyclerView phẳng đồng bộ
         RecyclerView rv = findViewById(R.id.rvAdminUserDecksList);
         rv.setLayoutManager(new LinearLayoutManager(this));
         adapter = new UserDecksAdapter(userDecksList);
@@ -56,7 +54,7 @@ public class AdminViewUserDecksActivity extends AppCompatActivity {
     }
 
     private void loadUserDecksRealtime(String uid) {
-        // 🌟 CHUẨN LOGIC: Quét personal_decks lọc theo UID học viên
+        // Query personal decks for the target user
         mFirestore.collection("personal_decks")
                 .whereEqualTo("userId", uid)
                 .addSnapshotListener((snapshots, error) -> {
@@ -68,7 +66,7 @@ public class AdminViewUserDecksActivity extends AppCompatActivity {
                     if (snapshots != null) {
                         userDecksList.clear();
 
-                        // 🌟 BỘ LỌC CHÍ MẠNG: Chỉ lấy học phần tự tạo, loại bỏ học phần hệ thống clone
+                        // Exclude decks cloned from system templates
                         for (DocumentSnapshot doc : snapshots.getDocuments()) {
                             String author = doc.getString("author");
                             if (!"Hệ thống".equals(author)) {
@@ -80,7 +78,7 @@ public class AdminViewUserDecksActivity extends AppCompatActivity {
                 });
     }
 
-    // ================= ADAPTER QUẢN LÝ LIST ITEM PHẲNG CỦA ADMIN =================
+    // Adapter for displaying user decks in admin inspector
     private static class UserDecksAdapter extends RecyclerView.Adapter<UserDecksAdapter.ViewHolder> {
         private final List<DocumentSnapshot> list;
 
@@ -91,7 +89,6 @@ public class AdminViewUserDecksActivity extends AppCompatActivity {
         @NonNull
         @Override
         public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            // Tái sử dụng layout ô vuông xám viền mảnh cực sạch của bạn
             View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_admin_global_deck, parent, false);
             return new ViewHolder(v);
         }
@@ -101,11 +98,9 @@ public class AdminViewUserDecksActivity extends AppCompatActivity {
             DocumentSnapshot doc = list.get(position);
             String title = doc.getString("title");
 
-            // Bóc tách số lượng thẻ bên trong mảng cards
             List<?> cards = (List<?>) doc.get("cards");
             int cardSize = cards != null ? cards.size() : 0;
 
-            // Bóc tách số lượt học của bộ thẻ
             int studyCount = 0;
             Object studyCountObj = doc.get("studyCount");
             if (studyCountObj instanceof Number) {
@@ -115,14 +110,14 @@ public class AdminViewUserDecksActivity extends AppCompatActivity {
             holder.txtTitle.setText(title != null ? title : "Chưa đặt tên học phần");
             holder.txtCount.setText(cardSize + " thuật ngữ  •  " + studyCount + " lượt học");
 
-            // 🌟 CHỨC NĂNG KIỂM DUYỆT: Tap vào dòng để bung Dialog xem nội dung chi tiết
+            // Show dialog previewing flashcard contents
             holder.itemView.setOnClickListener(v -> {
                 if (cards == null || cards.isEmpty()) {
                     Toast.makeText(v.getContext(), "Bộ học phần này trống, chưa có thuật ngữ nào!", Toast.LENGTH_SHORT).show();
                     return;
                 }
 
-                // Vòng lặp chuyển mảng Card Object từ Firebase thành văn bản liệt kê
+                // Format card objects as readable preview text
                 StringBuilder textBuilder = new StringBuilder();
                 for (Object item : cards) {
                     if (item instanceof Map) {
@@ -134,7 +129,6 @@ public class AdminViewUserDecksActivity extends AppCompatActivity {
                     }
                 }
 
-                // Hiện hộp thoại Dialog phẳng Material nịnh mắt
                 new MaterialAlertDialogBuilder(v.getContext())
                         .setTitle("Bộ thẻ: " + (title != null ? title : ""))
                         .setMessage(textBuilder.toString().trim())

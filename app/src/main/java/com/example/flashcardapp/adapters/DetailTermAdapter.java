@@ -1,4 +1,4 @@
-package com.example.flashcardapp.adapters; // Đảm bảo trùng khớp với cấu trúc thư mục của bạn
+package com.example.flashcardapp.adapters;
 
 import android.view.LayoutInflater;
 import android.view.View;

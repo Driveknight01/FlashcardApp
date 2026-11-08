@@ -43,14 +43,13 @@ public class LoginActivity extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         mFirestore = FirebaseFirestore.getInstance();
 
-        // 🌟 ĐÃ FIX: Điền trực tiếp Web Client ID chính chủ của Nam để triệt tiêu lỗi "Cannot resolve symbol"
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestIdToken("846504189626-clcknqdqiodhrrn7277c7e88dn6on3rl.apps.googleusercontent.com")
                 .requestEmail()
                 .build();
         mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
 
-        // Đăng ký cổng tiếp nhận tài khoản Google trả về
+        // Activity result launcher for Google Sign-In
         googleSignInLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
@@ -68,10 +67,8 @@ public class LoginActivity extends AppCompatActivity {
                 }
         );
 
-        // Đăng nhập bằng Email & Mật khẩu thông thường
         binding.btnLogin.setOnClickListener(v -> performLogin());
 
-        // Bấm nút Đăng nhập bằng Google
         binding.btnGoogleSignIn.setOnClickListener(v -> {
             mGoogleSignInClient.signOut().addOnCompleteListener(task -> {
                 Intent signInIntent = mGoogleSignInClient.getSignInIntent();
@@ -120,10 +117,10 @@ public class LoginActivity extends AppCompatActivity {
                             String name = document.getString("name");
                             String status = document.getString("status");
 
-                            // AN TOÀN TUYỆT ĐỐI: Chặn đăng nhập nếu tài khoản bị khóa từ trước
+                            // Reject sign-in if account is banned
                             if ("banned".equals(status)) {
                                 mAuth.signOut();
-                                Toast.makeText(LoginActivity.this, "🔒 Tài khoản này đã bị khóa do vi phạm!", Toast.LENGTH_LONG).show();
+                                Toast.makeText(LoginActivity.this, " Tài khoản này đã bị khóa do vi phạm!", Toast.LENGTH_LONG).show();
                                 return;
                             }
 
@@ -138,6 +135,7 @@ public class LoginActivity extends AppCompatActivity {
                 });
     }
 
+    // Authenticate with Firebase using Google ID token
     private void firebaseAuthWithGoogle(String idToken) {
         AuthCredential credential = GoogleAuthProvider.getCredential(idToken, null);
         mAuth.signInWithCredential(credential)
@@ -156,12 +154,12 @@ public class LoginActivity extends AppCompatActivity {
 
                                         if ("banned".equals(status)) {
                                             mAuth.signOut();
-                                            Toast.makeText(LoginActivity.this, "🔒 Tài khoản của bạn đã bị khóa!", Toast.LENGTH_LONG).show();
+                                            Toast.makeText(LoginActivity.this, " Tài khoản của bạn đã bị khóa!", Toast.LENGTH_LONG).show();
                                             return;
                                         }
                                         navigateBasedOnRole(role);
                                     } else {
-                                        // Đồng bộ tạo mới tài khoản nếu lần đầu dùng Google đăng nhập
+                                        // Register new Google user document in Firestore
                                         Map<String, Object> userData = new HashMap<>();
                                         userData.put("uid", uid);
                                         userData.put("email", email);

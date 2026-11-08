@@ -15,7 +15,7 @@ public class CreateCardAdapter extends RecyclerView.Adapter<CreateCardAdapter.Ca
     private final List<Flashcard> cardList;
     private OnCardFocusChangeListener focusListener;
 
-    // Interface truyền thông tin ô đang focus ra ngoài Activity
+    // Callback to notify hosting Activity of focused field changes
     public interface OnCardFocusChangeListener {
         void onFocusChanged(int position, boolean isTerm);
     }
@@ -60,14 +60,12 @@ public class CreateCardAdapter extends RecyclerView.Adapter<CreateCardAdapter.Ca
             binding.edtTerm.setText(card.getTerm());
             binding.edtDefinition.setText(card.getDefinition());
 
-            // Ghi nhận vị trí khi người dùng nhấn chọn vào ô Thuật ngữ
             binding.edtTerm.setOnFocusChangeListener((v, hasFocus) -> {
                 if (hasFocus && focusListener != null) {
                     focusListener.onFocusChanged(position, true);
                 }
             });
 
-            // Ghi nhận vị trí khi người dùng nhấn chọn vào ô Định nghĩa
             binding.edtDefinition.setOnFocusChangeListener((v, hasFocus) -> {
                 if (hasFocus && focusListener != null) {
                     focusListener.onFocusChanged(position, false);

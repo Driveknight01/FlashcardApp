@@ -38,7 +38,7 @@ public class HomeDeckAdapter extends RecyclerView.Adapter<HomeDeckAdapter.ViewHo
         if (data != null) {
             String title = (String) data.get("title");
 
-            // 🌟 ĐÃ FIX: Lấy nhãn tác giả động dựa theo nguồn bài nạp vào
+            // Resolve author label with fallback
             String author = data.containsKey("author") ? (String) data.get("author") : "bạn";
 
             int cardCount = 0;

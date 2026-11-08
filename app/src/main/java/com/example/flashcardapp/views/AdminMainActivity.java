@@ -28,11 +28,11 @@ public class AdminMainActivity extends AppCompatActivity {
     private ActivityAdminMainBinding binding;
     private FirebaseFirestore mFirestore;
 
-    // Danh sách và Adapter riêng cho Luồng 1 (Top 3 Ô Xu hướng Card độc lập)
+    // Top 3 trending decks data
     private final List<Map.Entry<String, Integer>> trendingDecksList = new ArrayList<>();
     private AdminTrendingAdapter trendingDecksAdapter;
 
-    // Danh sách và Adapter riêng cho Luồng 2 (Học viên hoạt động trong ngày)
+    // Active users data for today's dashboard
     private final List<Map<String, Object>> activeUsersDashboardList = new ArrayList<>();
     private ActiveUserHomeStyleAdapter userDashboardAdapter;
 
@@ -56,25 +56,21 @@ public class AdminMainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (binding != null) {
-            binding.txtActiveUserCount.setText("Top 5 hôm nay");
+            binding.txtActiveUserCount.setText("");
         }
     }
 
     private void setupRecyclerViews() {
-        // 1. Cấu hình danh sách hiển thị Top 3 ô Xu hướng Card riêng biệt
         binding.rvAdminTrendingDecks.setLayoutManager(new LinearLayoutManager(this));
-
-        // Chặn cuộn riêng biệt để tích hợp vào luồng cuộn toàn màn hình mượt mà
+        // Disable nested scrolling to integrate with parent scroll container
         binding.rvAdminTrendingDecks.setHasFixedSize(false);
         binding.rvAdminTrendingDecks.setNestedScrollingEnabled(false);
 
         trendingDecksAdapter = new AdminTrendingAdapter(trendingDecksList);
         binding.rvAdminTrendingDecks.setAdapter(trendingDecksAdapter);
 
-        // 2. Cấu hình danh sách Học viên hoạt động hôm nay
         binding.rvAdminActiveUsersToday.setLayoutManager(new LinearLayoutManager(this));
-
-        // Khóa chặt tính năng cuộn riêng, ép trải phẳng ra để vuốt được toàn bộ trang chủ
+        // Disable nested scrolling to integrate with parent scroll container
         binding.rvAdminActiveUsersToday.setHasFixedSize(false);
         binding.rvAdminActiveUsersToday.setNestedScrollingEnabled(false);
 
@@ -93,14 +89,13 @@ public class AdminMainActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
-        // Click mở màn hình Sửa bộ thẻ hệ thống đã làm đồng bộ màu xanh đen với bên User
         binding.btnMenuGlobalDecks.setOnClickListener(v ->
                 startActivity(new Intent(AdminMainActivity.this, AdminDecksActivity.class)));
 
         binding.btnMenuUserList.setOnClickListener(v ->
                 startActivity(new Intent(AdminMainActivity.this, AdminUsersActivity.class)));
 
-        // 🌟 ĐÃ ĐỒNG BỘ ĐÚNG ID XML: Đấu nối sự kiện click cụm Avatar nhảy sang Profile dùng chung kèm cờ định danh "admin"
+        // Navigate to profile with admin role
         if (binding.cardAdminAvatarWrapper != null) {
             binding.cardAdminAvatarWrapper.setOnClickListener(v -> {
                 Intent intent = new Intent(AdminMainActivity.this, ProfileActivity.class);
@@ -112,7 +107,7 @@ public class AdminMainActivity extends AppCompatActivity {
 
     @SuppressLint("NotifyDataSetChanged")
     private void startRealtimeDashboardListening() {
-        // 🌟 LUỒNG 1: THỐNG KÊ XU HƯỚNG REALTIME - TOP 3 Ô CARD ĐỘC LẬP CHẠY NGẦM
+        // Realtime listener: Aggregate top 3 trending system decks by study count
         trendingListener = mFirestore.collection("personal_decks")
                 .addSnapshotListener((snapshots, error) -> {
                     if (error != null || binding == null) return;
@@ -165,7 +160,7 @@ public class AdminMainActivity extends AppCompatActivity {
                     }
                 });
 
-        // 🌟 LUỒNG 2: DANH SÁCH HỌC VIÊN HOẠT ĐỘNG REALTIME TRONG NGÀY
+        // Realtime listener: Active users today (based on deck lastModified timestamp)
         Calendar calendar = Calendar.getInstance();
         calendar.set(Calendar.HOUR_OF_DAY, 0);
         calendar.set(Calendar.MINUTE, 0);
@@ -227,7 +222,7 @@ public class AdminMainActivity extends AppCompatActivity {
         if (activeUsersListener != null) activeUsersListener.remove();
     }
 
-    // ADAPTER 1: Vẽ giao diện 3 ô Card Xu hướng độc lập kèm viên thuốc Capsule
+    // Adapter for top trending decks
     private static class AdminTrendingAdapter extends RecyclerView.Adapter<AdminTrendingAdapter.ViewHolder> {
         private final List<Map.Entry<String, Integer>> list;
 
@@ -265,7 +260,7 @@ public class AdminMainActivity extends AppCompatActivity {
         }
     }
 
-    // ADAPTER 2: Quản lý luồng chấm đèn trạng thái hoạt động trực tuyến của Học viên
+    // Adapter for active user status indicators
     private static class ActiveUserHomeStyleAdapter extends RecyclerView.Adapter<ActiveUserHomeStyleAdapter.ViewHolder> {
         private final List<Map<String, Object>> list;
 

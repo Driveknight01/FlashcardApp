@@ -40,7 +40,7 @@ public class CreateDeckActivity extends AppCompatActivity {
     private boolean isEditMode = false;
     private String editDeckId = "";
 
-    // 📸 BỘ NHẬN DỮ LIỆU OCR CAMERA
+    // Activity result launcher for OCR scanning results
     private final ActivityResultLauncher<Intent> scanActivityLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
@@ -50,6 +50,7 @@ public class CreateDeckActivity extends AppCompatActivity {
                         Type type = new TypeToken<ArrayList<Flashcard>>(){}.getType();
                         ArrayList<Flashcard> newlyScannedCards = new Gson().fromJson(jsonCards, type);
 
+                        // Merge scanned cards into empty rows or append to card list
                         if (newlyScannedCards != null && !newlyScannedCards.isEmpty()) {
                             for (Flashcard newCard : newlyScannedCards) {
                                 boolean merged = false;
@@ -64,7 +65,7 @@ public class CreateDeckActivity extends AppCompatActivity {
                                 if (!merged) cardList.add(newCard);
                             }
                             adapter.notifyDataSetChanged();
-                            Toast.makeText(this, "Đã cập nhật thêm " + newlyScannedCards.size() + " thẻ từ tài liệu OCR!", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(this, "Đã thêm " + newlyScannedCards.size() + " thẻ quét OCR!", Toast.LENGTH_SHORT).show();
                         }
                     }
                 }
@@ -81,12 +82,10 @@ public class CreateDeckActivity extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         cardList = new ArrayList<>();
 
-        // Cấu hình danh sách RecyclerView trước để sẵn sàng nhận data đổ vào
         binding.rvCreateCards.setLayoutManager(new LinearLayoutManager(this));
         adapter = new CreateCardAdapter(cardList, null);
         binding.rvCreateCards.setAdapter(adapter);
 
-        // 🎛️ PHÂN LOẠI CHẾ ĐỘ CHẠY
         if (getIntent() != null) {
             if (getIntent().hasExtra("USER_ROLE")) {
                 userRole = getIntent().getStringExtra("USER_ROLE");
@@ -98,14 +97,13 @@ public class CreateDeckActivity extends AppCompatActivity {
                 String editTitle = getIntent().getStringExtra("DECK_TITLE");
                 String cardsJson = getIntent().getStringExtra("DECK_CARDS_JSON");
 
-                // Tiêu đề động tùy thuộc quyền quản trị
                 if ("admin".equals(userRole)) {
-                    binding.toolbarCreate.setTitle("Sửa học phần hệ thống");
+                    binding.toolbarCreate.setTitle("Sửa bộ thẻ hệ thống");
                 } else {
-                    binding.toolbarCreate.setTitle("Sửa học phần của bạn");
+                    binding.toolbarCreate.setTitle("Sửa bộ thẻ của bạn");
                 }
 
-                // LUỒNG 1: Dành cho Admin (Nếu có sẵn dữ liệu JSON truyền sang từ trước)
+                // Case 1: Cards JSON payload passed via Intent
                 if (editTitle != null) binding.edtDeckTitle.setText(editTitle);
                 if (cardsJson != null && !cardsJson.isEmpty()) {
                     Type type = new TypeToken<ArrayList<Flashcard>>(){}.getType();
@@ -117,14 +115,14 @@ public class CreateDeckActivity extends AppCompatActivity {
                     }
                 }
 
-                // LUỒNG 2: TỰ ĐỘNG CỨU CÁNH (Nếu màn hình trước chỉ truyền duy nhất DECK_ID sang)
+                // Case 2: Only deck ID provided; fetch deck data from Firestore
                 if ((editTitle == null || cardsJson == null) && !editDeckId.isEmpty()) {
                     fetchTargetDeckDataForEdit(editDeckId);
                 }
             }
         }
 
-        // Nếu là thêm mới thông thường, khởi tạo sẵn 2 ô trống để người dùng gõ nội dung
+        // Initialize with 2 empty card slots for new decks
         if (!isEditMode && cardList.isEmpty()) {
             binding.toolbarCreate.setTitle("Tạo học phần (" + userRole + ")");
             cardList.add(new Flashcard("", ""));
@@ -132,7 +130,6 @@ public class CreateDeckActivity extends AppCompatActivity {
             adapter.notifyDataSetChanged();
         }
 
-        // Cấu hình Toolbar & nút Lưu tài nguyên menu góc phải
         binding.toolbarCreate.setNavigationOnClickListener(v -> finish());
         binding.toolbarCreate.inflateMenu(R.menu.menu_create_deck);
         binding.toolbarCreate.setOnMenuItemClickListener(item -> {
@@ -143,13 +140,11 @@ public class CreateDeckActivity extends AppCompatActivity {
             return false;
         });
 
-        // Kích hoạt camera quét văn bản OCR thông minh
         binding.btnGlobalOcrScan.setOnClickListener(v -> {
             Intent intent = new Intent(CreateDeckActivity.this, OcrScanActivity.class);
             scanActivityLauncher.launch(intent);
         });
 
-        // Nút thêm thủ công 1 dòng thẻ trống dưới đáy
         binding.fabAddCardSlot.setOnClickListener(v -> {
             cardList.add(new Flashcard("", ""));
             adapter.notifyItemInserted(cardList.size() - 1);
@@ -157,7 +152,7 @@ public class CreateDeckActivity extends AppCompatActivity {
         });
     }
 
-    // 🚀 LUỒNG TRUY VẤN DỮ LIỆU ĐỔ NGƯỢC LÊN FORM KHI CHỈ CÓ ID BỘ BÀI
+    // Fetches existing deck details when editing via deck ID
     private void fetchTargetDeckDataForEdit(String deckId) {
         String collectionPath = "admin".equals(userRole) ? "global_decks" : "personal_decks";
 
@@ -168,7 +163,6 @@ public class CreateDeckActivity extends AppCompatActivity {
                         String title = documentSnapshot.getString("title");
                         binding.edtDeckTitle.setText(title);
 
-                        // Bóc tách mảng map thẻ con từ Firestore ép kiểu sang Model Flashcard
                         List<Map<String, Object>> cardsMapList = (List<Map<String, Object>>) documentSnapshot.get("cards");
                         if (cardsMapList != null) {
                             cardList.clear();
@@ -192,7 +186,7 @@ public class CreateDeckActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> Log.e("FirestoreFetchEdit", "Lỗi nạp bài sửa: " + e.getMessage()));
     }
 
-    // 🌟 HÀM LƯU TỐI ƯU ĐA NĂNG: Tách biệt hoàn toàn luồng Tạo mới và Chỉnh sửa
+    // Serializes card list and commits deck to Firestore
     private void saveDeckToFirebase() {
         String title = binding.edtDeckTitle.getText().toString().trim();
         FirebaseUser currentUser = mAuth.getCurrentUser();
@@ -203,7 +197,7 @@ public class CreateDeckActivity extends AppCompatActivity {
             return;
         }
 
-        // Chuyển đổi mảng đối tượng Flashcard sang List<Map> thuần dữ liệu để Firestore xử lý đồng bộ mượt mà
+        // Map Flashcard objects to Firestore-compatible structures
         List<Map<String, Object>> firebaseCardsList = new ArrayList<>();
         for (Flashcard card : cardList) {
             String term = card.getTerm().trim();
@@ -222,14 +216,14 @@ public class CreateDeckActivity extends AppCompatActivity {
         }
 
         if (firebaseCardsList.size() < 2) {
-            Toast.makeText(this, "Mục học phần cần chứa tối thiểu từ 2 thẻ trở lên để tạo!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Cần có tối thiểu từ 2 thẻ trở lên để tạo!", Toast.LENGTH_SHORT).show();
             return;
         }
 
         String deckId = isEditMode ? editDeckId : UUID.randomUUID().toString();
         String collectionPath = userRole.equals("admin") ? "global_decks" : "personal_decks";
 
-        // 🌟 CHẾ ĐỘ CHỈNH SỬA (EDIT MODE): Không thay đổi trường lastModified tổng để tránh lệch vị trí trang chủ
+        // Update existing deck
         if (isEditMode) {
             binding.fabAddCardSlot.setEnabled(false);
 
@@ -243,10 +237,10 @@ public class CreateDeckActivity extends AppCompatActivity {
                         binding.fabAddCardSlot.setEnabled(true);
                         Toast.makeText(CreateDeckActivity.this, "Lỗi Firebase: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     });
-            return; // Ngắt luồng xử lý tại đây
+            return;
         }
 
-        // 🌟 CHẾ ĐỘ TẠO MỚI TINH: Khởi tạo dữ liệu và cấp nhãn thời gian lastModified ban đầu
+        // Create new deck
         Map<String, Object> deckMap = new HashMap<>();
         deckMap.put("id", deckId);
         deckMap.put("title", title);

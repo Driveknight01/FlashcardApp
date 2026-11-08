@@ -61,7 +61,7 @@ public class UserSearchDecksActivity extends AppCompatActivity {
         setupUserAvatar();
         loadSecureSearchData();
 
-        // LOGIC LỌC CHỮ REALTIME PHÂN TẦNG
+        // Realtime filter logic for search suggestions
         binding.edtUserRealSearch.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -95,7 +95,7 @@ public class UserSearchDecksActivity extends AppCompatActivity {
         }
     }
 
-    // 🔒 BẢO MẬT: Chỉ bốc bài Admin và bài của chính User đăng nhập hiện tại
+    // Query system decks and personal decks belonging to current user
     private void loadSecureSearchData() {
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null) return;
@@ -103,18 +103,18 @@ public class UserSearchDecksActivity extends AppCompatActivity {
 
         masterDecksList.clear();
 
-        // 1. Kéo kho dữ liệu hệ thống của Admin
+        // 1. Global system decks
         mFirestore.collection("global_decks").get().addOnSuccessListener(snapshots -> {
             if (snapshots != null) {
                 for (QueryDocumentSnapshot doc : snapshots) {
                     Map<String, Object> data = doc.getData();
                     data.put("id", doc.getId());
-                    data.put("author", "Hệ thống"); // Đóng nhãn nhận diện nguồn bài
+                    data.put("author", "Hệ thống");
                     masterDecksList.add(data);
                 }
             }
 
-            // 2. Kéo kho dữ liệu cá nhân của riêng mình (Tuyệt đối không lấy user khác)
+            // 2. Current user personal decks
             mFirestore.collection("personal_decks")
                     .whereEqualTo("userId", currentUid)
                     .get()
@@ -167,7 +167,7 @@ public class UserSearchDecksActivity extends AppCompatActivity {
         binding.rvUserSearchResults.setAdapter(suggestionAdapter);
     }
 
-    // ================= TẦNG 1: HIỂN THỊ DÒNG CHỮ GỢI Ý (Tái sử dụng item_search_suggestion của bạn) =================
+    // Adapter for search suggestions
     private class SuggestionAdapter extends RecyclerView.Adapter<SuggestionAdapter.ViewHolder> {
         private final List<Map<String, Object>> list;
         public SuggestionAdapter(List<Map<String, Object>> list) { this.list = list; }
@@ -195,7 +195,7 @@ public class UserSearchDecksActivity extends AppCompatActivity {
         }
     }
 
-    // ================= TẦNG 2: HIỂN THỊ KHỐI THẺ BÀI ĐỂ CLICK ĐI VÀO HỌC CHI TIẾT (Tái sử dụng item_home_deck của bạn) =================
+    // Adapter for selected deck preview card
     private class FinalCardAdapter extends RecyclerView.Adapter<FinalCardAdapter.ViewHolder> {
         private final List<Map<String, Object>> list;
         public FinalCardAdapter(List<Map<String, Object>> list) { this.list = list; }
@@ -216,7 +216,6 @@ public class UserSearchDecksActivity extends AppCompatActivity {
             List<?> cards = (List<?>) deck.get("cards");
             holder.txtSubtitle.setText("Đã lưu • " + (cards != null ? cards.size() : 0) + " thuật ngữ • Tác giả: " + author);
 
-            // Bấm vào thẻ bài -> Bay thẳng tới màn hình chi tiết học phần
             holder.itemView.setOnClickListener(v -> {
                 Intent intent = new Intent(UserSearchDecksActivity.this, DeckDetailActivity.class);
                 intent.putExtra("DECK_ID", String.valueOf(deck.get("id")));

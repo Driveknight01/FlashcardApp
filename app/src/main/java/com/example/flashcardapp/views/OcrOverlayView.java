@@ -16,8 +16,8 @@ import java.util.List;
 
 public class OcrOverlayView extends View {
 
-    private final List<Text.Element> textElements = new ArrayList<>();
-    private final List<Integer> selectedIndices = new ArrayList<>();
+    private final List<Text.Element> textElements = new ArrayList<>(); // Recognized text elements from ML Kit
+    private final List<Integer> selectedIndices = new ArrayList<>();    // Selected element indices from touch selection
     private Paint boxPaint;
     private Paint selectedBoxPaint;
 
@@ -36,11 +36,13 @@ public class OcrOverlayView extends View {
     }
 
     private void init() {
+        // Paint for word bounding box outlines
         boxPaint = new Paint();
         boxPaint.setColor(Color.parseColor("#3F51B5"));
         boxPaint.setStyle(Paint.Style.STROKE);
         boxPaint.setStrokeWidth(2f);
 
+        // Paint for selected highlight boxes
         selectedBoxPaint = new Paint();
         selectedBoxPaint.setColor(Color.parseColor("#4CAF50"));
         selectedBoxPaint.setStyle(Paint.Style.FILL);
@@ -51,12 +53,15 @@ public class OcrOverlayView extends View {
         this.wordListener = listener;
     }
 
+    // Calculates scaling factor and offsets to map image coordinates to view space
     public void setScaleAndOffsets(ImageView imageView, int imageWidth, int imageHeight) {
         float viewWidth = imageView.getWidth();
         float viewHeight = imageView.getHeight();
+
         float scale = Math.min(viewWidth / imageWidth, viewHeight / imageHeight);
         this.scaleX = scale;
         this.scaleY = scale;
+
         this.offsetX = (viewWidth - (imageWidth * scale)) / 2.0f;
         this.offsetY = (viewHeight - (imageHeight * scale)) / 2.0f;
     }
@@ -104,7 +109,7 @@ public class OcrOverlayView extends View {
         int x = (int) event.getX();
         int y = (int) event.getY();
 
-        // TỰ ĐỘNG RESET: Khi người dùng bắt đầu lượt chạm mới, dọn sạch bộ nhớ bôi chọn cũ
+        // Reset previous selection on new touch down
         if (action == MotionEvent.ACTION_DOWN) {
             selectedIndices.clear();
             invalidate();

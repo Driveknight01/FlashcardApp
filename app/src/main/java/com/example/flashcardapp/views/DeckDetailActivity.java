@@ -1,4 +1,5 @@
 package com.example.flashcardapp.views;
+
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -36,13 +37,13 @@ public class DeckDetailActivity extends AppCompatActivity {
             deckCollection = getIntent().getStringExtra("DECK_TYPE");
         }
 
-        // 🔍 TẦNG KIỂM TRA 1 (LOGCAT): In ra màn hình kiểm thử xem Intent truyền sang cái gì
+        // Debug log for incoming Intent payload
         Log.d("CHECK_BUG", "==== THÔNG TIN NHẬN TỪ INTENT ====");
         Log.d("CHECK_BUG", "DECK_ID nhận được: " + deckId);
         Log.d("CHECK_BUG", "DECK_TITLE nhận được: " + deckTitle);
         Log.d("CHECK_BUG", "DECK_TYPE (Collection) nhận được: " + deckCollection);
 
-        // Mặc định ban đầu khi vừa mở màn hình: KHÓA ẨN LUÔN 2 nút để an toàn, tránh bị lag tự bật
+        // Hide owner actions by default until ownership verification completes
         binding.llOwnerActions.setVisibility(View.GONE);
 
         binding.txtDetailTitle.setText(deckTitle != null ? deckTitle : "...");
@@ -88,17 +89,16 @@ public class DeckDetailActivity extends AppCompatActivity {
                         String ADMIN_UID = "L4O3R0p5G7P6zZfS1gD4z7T1m683";
                         String currentUid = mAuth.getCurrentUser() != null ? mAuth.getCurrentUser().getUid() : "";
 
-                        // 🔍 TẦNG KIỂM TRA 2: So sánh trực tiếp cả Tiêu đề chữ nếu ID bị clone đè
+                        // Verify whether current deck is a system deck or admin-created
                         String currentDisplayTitle = binding.txtDetailTitle.getText().toString().trim();
                         boolean isSystemTitle = "Côn Trùng".equals(currentDisplayTitle) || "Côn trùng".equals(currentDisplayTitle);
                         boolean isAdminDeckId = "8fa804be-18b3-4f93-b6be-d8869c9b5a2b".equals(deckId);
 
-                        // 🔒 TẦNG BẢO MẬT TỐI CAO (QUYẾT ĐỊNH):
-                        // Chỉ cần dính 1 trong các điều kiện hệ thống này là KHÓA TỰ ĐỘNG
+                        // Hide edit/delete actions for system and global decks
                         if (isAdminDeckId || isSystemTitle || "Hệ thống".equals(dbAuthor) || ADMIN_UID.equals(creatorId) || "global_decks".equals(deckCollection)) {
                             Log.d("CHECK_BUG", "==> KẾT LUẬN: Đây là bài ADMIN. Ép ẩn nút Sửa/Xóa!");
                             binding.txtDetailInfo.setText(size + " thuật ngữ  •  Tác giả: Hệ thống");
-                            binding.llOwnerActions.setVisibility(View.GONE); // Khóa xích vĩnh viễn
+                            binding.llOwnerActions.setVisibility(View.GONE);
                         }
                         else if (currentUid.equals(creatorId)) {
                             Log.d("CHECK_BUG", "==> KẾT LUẬN: Đây là bài của USER tự tạo. Mở nút!");
@@ -110,10 +110,10 @@ public class DeckDetailActivity extends AppCompatActivity {
                             binding.llOwnerActions.setVisibility(View.GONE);
                         }
                     } else {
-                        // 🔍 TẦNG KIỂM TRA 3: Nếu Firebase báo Document không tồn tại (Do truyền sai ID)
+                        // Document does not exist in target collection
                         Log.e("CHECK_BUG", "-> THẤT BẠI: Document không tồn tại trong bảng " + deckCollection + " với ID: " + deckId);
-                        binding.txtDetailInfo.setText("Học phần không tồn tại hoặc đã bị xóa");
-                        binding.llOwnerActions.setVisibility(View.GONE); // Cấm hiện nút
+                        binding.txtDetailInfo.setText("");
+                        binding.llOwnerActions.setVisibility(View.GONE);
                     }
                 })
                 .addOnFailureListener(e -> {
@@ -133,19 +133,19 @@ public class DeckDetailActivity extends AppCompatActivity {
 
         binding.btnDeleteDeck.setOnClickListener(v -> {
             new AlertDialog.Builder(this)
-                    .setTitle("Xóa học phần?")
-                    .setMessage("Bạn có chắc chắn muốn xóa vĩnh viễn bộ học phần này không? Thao tác này không thể hoàn tác.")
-                    .setPositiveButton("Xóa", (dialog, which) -> {
-                        mFirestore.collection("personal_decks").document(deckId)
-                                .delete()
-                                .addOnSuccessListener(aVoid -> {
-                                    Toast.makeText(DeckDetailActivity.this, "Đã xóa bộ học phần thành công!", Toast.LENGTH_SHORT).show();
-                                    finish();
-                                })
-                                .addOnFailureListener(e -> Toast.makeText(DeckDetailActivity.this, "Lỗi khi xóa: " + e.getMessage(), Toast.LENGTH_SHORT).show());
-                    })
-                    .setNegativeButton("Hủy", null)
-                    .show();
+                .setTitle("Xóa bộ thẻ?")
+                .setMessage("Bạn có chắc chắn muốn xóa vĩnh viễn bộ thẻ này không? Thao tác này không thể hoàn tác.")
+                .setPositiveButton("Xóa", (dialog, which) -> {
+                    mFirestore.collection("personal_decks").document(deckId)
+                            .delete()
+                            .addOnSuccessListener(aVoid -> {
+                                Toast.makeText(DeckDetailActivity.this, "Đã xóa bộ thẻ thành công!", Toast.LENGTH_SHORT).show();
+                                finish();
+                            })
+                            .addOnFailureListener(e -> Toast.makeText(DeckDetailActivity.this, "Lỗi khi xóa: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                })
+                .setNegativeButton("Hủy", null)
+                .show();
         });
     }
 }
